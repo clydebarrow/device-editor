@@ -1,13 +1,14 @@
 name = "device-editor"
 main = "worker/index.js"
-compatibility_date = "2025-03-13"
+compatibility_date = "2025-03-12"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
-GITHUB_CLIENT_ID = ""
-GITHUB_CLIENT_SECRET = ""
-UPSTREAM_REPO = ""
+GITHUB_CLIENT_ID = "Iv23liylBD7j9P27QzWk"
+GITHUB_CLIENT_SECRET = "36d955d3f110a1388a99c4ae9df05ebf792ebac2"
+UPSTREAM_REPO = "clydebarrow/device-configs"
+BASE_BRANCH = "main"
 
-# Use Workers KV for session storage
-kv_namespaces = [
-  { binding = "SESSIONS", id = "" }
-]
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "9f41a0d949f44ab282d9865de743f1dc"

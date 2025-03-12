@@ -1,5 +1,4 @@
 import { Octokit } from '@octokit/rest';
-import { createHash } from 'crypto';
 
 // Helper to generate session ID
 const generateSessionId = () => crypto.randomUUID();
@@ -23,7 +22,8 @@ async function handleAuth(request, env) {
   // GitHub OAuth flow start
   if (url.pathname === '/auth/github') {
     const sessionId = generateSessionId();
-    const redirectUrl = `https://github.com/login/oauth/authorize?client_id=${env.GITHUB_CLIENT_ID}&scope=repo`;
+    const origin = new URL(request.url).origin;
+    const redirectUrl = `https://github.com/login/oauth/authorize?client_id=${env.GITHUB_CLIENT_ID}&scope=repo&redirect_uri=${origin}/auth/github/callback`;
     
     // Store session
     await env.SESSIONS.put(sessionId, JSON.stringify({ pending: true }), { expirationTtl: 3600 });
@@ -72,9 +72,10 @@ async function handleAuth(request, env) {
       await env.SESSIONS.put(sessionId, JSON.stringify({ token: tokenData.access_token }), { expirationTtl: 3600 * 24 });
     }
     
+    const origin = new URL(request.url).origin;
     return new Response(null, {
       status: 302,
-      headers: { 'Location': '/' },
+      headers: { 'Location': origin },
     });
   }
   
@@ -189,7 +190,7 @@ async function handleSubmitDevice(request, env) {
     const { data: baseRef } = await octokit.git.getRef({
       owner,
       repo,
-      ref: 'heads/dev',
+      ref: `heads/${env.BASE_BRANCH || 'dev'}`,
     });
     
     // Create new branch
@@ -262,7 +263,7 @@ async function handleSubmitDevice(request, env) {
       title: `Add device: ${boardName}`,
       body: `Add support for ${boardName}\n\n${description}`,
       head: `${user.data.login}:${branchName}`,
-      base: 'dev',
+      base: env.BASE_BRANCH || 'dev',
     });
     
     return jsonResponse({
