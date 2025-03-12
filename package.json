@@ -1,0 +1,17 @@
+{
+  "name": "device-editor",
+  "version": "1.0.0",
+  "description": "Device Editor Cloudflare Worker",
+  "main": "worker/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  },
+  "devDependencies": {
+    "wrangler": "^3.30.1"
+  }
+}

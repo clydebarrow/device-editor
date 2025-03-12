@@ -1,0 +1,13 @@
+name = "device-editor"
+main = "worker/index.js"
+compatibility_date = "2025-03-13"
+
+[vars]
+GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_SECRET = ""
+UPSTREAM_REPO = ""
+
+# Use Workers KV for session storage
+kv_namespaces = [
+  { binding = "SESSIONS", id = "" }
+]
