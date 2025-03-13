@@ -16,7 +16,14 @@ class DeviceEditor {
         this.imageOverlay = this.imageDropZone.querySelector('.drop-zone-overlay');
         this.contextMenu = document.getElementById('contextMenu');
         this.toast = document.getElementById('toast');
-        
+
+        // Cache form elements
+        this.formElements = {
+            boardName: document.getElementById('boardName'),
+            description: document.getElementById('description'),
+            productLink: document.getElementById('productLink')
+        };
+
         // Initialize CodeMirror
         this.yamlEditor = CodeMirror.fromTextArea(document.getElementById('yamlCode'), {
             mode: 'yaml',
@@ -27,11 +34,17 @@ class DeviceEditor {
             lineWrapping: true
         });
 
+        // Add change handler to save YAML content
+        this.yamlEditor.on('change', () => {
+            this.saveFormState();
+        });
+
         // Server configuration
         this.serverConfig = {
-            submitUrl: 'http://localhost:5003/submit',
-            authUrl: 'http://localhost:5003/auth/github',
-            authCheckUrl: 'http://localhost:5003/auth/check',
+            submitUrl: 'http://localhost:8787/submit',
+            authUrl: 'http://localhost:8787/auth/github',
+            authCheckUrl: 'http://localhost:8787/auth/check',
+            logoutUrl: 'http://localhost:8787/auth/logout',
             maxImageSize: 5 * 1024 * 1024  // 5MB max per image
         };
 
@@ -125,7 +138,10 @@ class DeviceEditor {
                 'GPIO20', 'GPIO21', 'GPIO22', 'GPIO23', 'GPIO24', 'GPIO26'
             ]
         };
-        
+
+        // Restore form state if available
+        this.restoreFormState();
+
         // Check authentication status
         this.checkAuthStatus();
         
@@ -185,8 +201,18 @@ class DeviceEditor {
 
         // Add logout handler
         document.getElementById('logoutButton').addEventListener('click', () => {
-            fetch('/auth/logout', { credentials: 'include' })
-                .then(() => {
+            fetch(this.serverConfig.logoutUrl, { 
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Logout failed');
+                    }
+                    localStorage.removeItem('deviceEditorFormData');
                     this.checkAuthStatus();
                     window.location.reload();
                 })
@@ -196,25 +222,25 @@ class DeviceEditor {
                 });
         });
 
-        // Cache form elements
-        this.formElements = {
-            boardName: document.getElementById('boardName'),
-            description: document.getElementById('description'),
-            productLink: document.getElementById('productLink')
+        // Add validation and save state on input/blur for text inputs
+        const handleInput = (element, validateFn) => {
+            element.addEventListener('input', () => {
+                validateFn.call(this, element);
+                this.saveFormState();
+            });
+            element.addEventListener('blur', () => validateFn.call(this, element));
+            element.addEventListener('paste', () => setTimeout(() => {
+                validateFn.call(this, element);
+                this.saveFormState();
+            }, 0));
         };
 
-        // Add validation on blur for text inputs
-        this.formElements.boardName.addEventListener('blur', () => this.validateBoardName(this.formElements.boardName));
-        this.formElements.boardName.addEventListener('paste', () => setTimeout(() => this.validateBoardName(this.formElements.boardName), 0));
-
-        this.formElements.description.addEventListener('blur', () => this.validateDescription(this.formElements.description));
-        this.formElements.description.addEventListener('paste', () => setTimeout(() => this.validateDescription(this.formElements.description), 0));
-
-        this.formElements.productLink.addEventListener('blur', () => this.validateProductLink(this.formElements.productLink));
-        this.formElements.productLink.addEventListener('paste', () => setTimeout(() => this.validateProductLink(this.formElements.productLink), 0));
+        handleInput(this.formElements.boardName, this.validateBoardName);
+        handleInput(this.formElements.description, this.validateDescription);
+        handleInput(this.formElements.productLink, this.validateProductLink);
 
         // Add validation for YAML drop and paste
-        this.yamlDropZone.addEventListener('drop', () => setTimeout(() => this.validateYaml(), 0));
+        //this.yamlDropZone.addEventListener('drop', () => setTimeout(() => this.validateYaml(), 0));
         this.yamlEditor.on('paste', () => setTimeout(() => this.validateYaml(), 0));
 
         // Add validation for image drop and paste
@@ -257,7 +283,10 @@ class DeviceEditor {
             }
         });
 
-        this.chipTypeSelect.addEventListener('change', this.handleChipTypeChange.bind(this));
+        this.chipTypeSelect.addEventListener('change', (event) => {
+            this.handleChipTypeChange(event);
+            this.saveFormState();
+        });
         this.setupDropZone(this.yamlDropZone, this.handleYamlDrop.bind(this));
         this.setupDropZone(this.imageDropZone, this.handleImageDrop.bind(this));
         this.imageInput.addEventListener('change', this.handleImageSelect.bind(this));
@@ -305,7 +334,13 @@ class DeviceEditor {
             const boardName = boardNameInput.value;
             if (boardName) {
                 slugInput.value = this.generateSlug(boardName);
+                this.saveFormState();
             }
+        });
+
+        // Also save state when slug is manually edited
+        slugInput.addEventListener('input', () => {
+            this.saveFormState();
         });
 
         // Context menu for image drop zone
@@ -343,8 +378,9 @@ class DeviceEditor {
         });
 
         // Add GitHub login button handler
-        document.getElementById('githubLogin').addEventListener('click', () => {
-            window.location.href = this.serverConfig.authUrl;
+        document.getElementById('githubLogin').addEventListener('click', async () => {
+            const returnTo = window.location.toString();
+            window.location.href = `${this.serverConfig.authUrl}?returnTo=${encodeURIComponent(returnTo)}`;
         });
     }
 
@@ -400,28 +436,41 @@ class DeviceEditor {
     }
 
     setupDropZone(dropZone, dropHandler) {
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
+        const preventDefaults = (e) => {
             e.preventDefault();
             e.stopPropagation();
-        }
+        };
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.add('drag-over');
-            });
-        });
+        const handleDragEnter = (e) => {
+            preventDefaults(e);
+            dropZone.classList.add('drag-over');
+        };
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
+        const handleDragLeave = (e) => {
+            preventDefaults(e);
+            // Only remove class if we're not entering a child element
+            if (!dropZone.contains(e.relatedTarget)) {
                 dropZone.classList.remove('drag-over');
-            });
-        });
+            }
+        };
 
-        dropZone.addEventListener('drop', dropHandler);
+        const handleDrop = async (e) => {
+            preventDefaults(e);
+            dropZone.classList.remove('drag-over');
+            await dropHandler(e);
+        };
+
+        // Remove old event listeners if they exist
+        dropZone.removeEventListener('dragenter', handleDragEnter);
+        dropZone.removeEventListener('dragover', preventDefaults);
+        dropZone.removeEventListener('dragleave', handleDragLeave);
+        dropZone.removeEventListener('drop', handleDrop);
+
+        // Add new event listeners
+        dropZone.addEventListener('dragenter', handleDragEnter);
+        dropZone.addEventListener('dragover', preventDefaults);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+        dropZone.addEventListener('drop', handleDrop);
     }
 
     handleChipTypeChange(event) {
@@ -470,6 +519,7 @@ class DeviceEditor {
             this.validationState.hasTags = this.selectedTagsList.size > 0;
             document.getElementById('tagsRequired').value = this.validationState.hasTags ? 'valid' : '';
             this.validateForm();
+            this.saveFormState();
         }
     }
 
@@ -481,6 +531,7 @@ class DeviceEditor {
         this.validationState.hasTags = this.selectedTagsList.size > 0;
         document.getElementById('tagsRequired').value = this.validationState.hasTags ? 'valid' : '';
         this.validateForm();
+        this.saveFormState();
     }
 
     updateGpioPinList(chipType) {
@@ -505,6 +556,7 @@ class DeviceEditor {
                 this.validationState.hasGpioPins = Array.from(this.gpioPinList.querySelectorAll('.pin-function'))
                     .some(input => input.value.trim() !== '');
                 document.getElementById('gpioPinsRequired').value = this.validationState.hasGpioPins ? 'valid' : '';
+                this.saveFormState();
             });
 
             this.gpioPinList.appendChild(pinItem);
@@ -520,10 +572,78 @@ class DeviceEditor {
         try {
             const content = await file.text();
             this.yamlEditor.setValue(content);
-            this.validateForm();
+            this.saveFormState();
+            this.validateYaml();
         } catch (error) {
             console.error('Error reading YAML file:', error);
             alert('Error reading YAML file. Please try again.');
+        }
+    }
+
+    saveFormState() {
+        const formData = {
+            boardName: this.formElements.boardName.value,
+            description: this.formElements.description.value,
+            productLink: this.formElements.productLink.value,
+            chipType: this.chipTypeSelect.value,
+            slug: this.slugInput.value,
+            yamlContent: this.yamlEditor.getValue(),
+            tags: Array.from(this.selectedTagsList),
+            gpioPins: {},
+            timestamp: new Date().toISOString()
+        };
+
+        // Save GPIO pin functions
+        this.gpioPinList.querySelectorAll('.pin-function').forEach(input => {
+            if (input.value.trim()) {
+                formData.gpioPins[input.dataset.pin] = input.value.trim();
+            }
+        });
+
+        localStorage.setItem('deviceEditorFormData', JSON.stringify(formData));
+    }
+
+    restoreFormState() {
+        try {
+            const savedData = localStorage.getItem('deviceEditorFormData');
+            if (savedData) {
+                const formData = JSON.parse(savedData);
+                
+                // Restore basic form fields
+                if (formData.boardName) this.formElements.boardName.value = formData.boardName;
+                if (formData.description) this.formElements.description.value = formData.description;
+                if (formData.productLink) this.formElements.productLink.value = formData.productLink;
+                if (formData.chipType) {
+                    this.chipTypeSelect.value = formData.chipType;
+                    this.updateGpioPinList(formData.chipType);
+                }
+                if (formData.slug) this.slugInput.value = formData.slug;
+                
+                // Restore YAML content
+                if (formData.yamlContent) {
+                    this.yamlEditor.setValue(formData.yamlContent);
+                    this.yamlDropZone.classList.add('has-content');
+                }
+                
+                // Restore tags
+                if (formData.tags) {
+                    formData.tags.forEach(tag => this.addTag(tag));
+                }
+                
+                // Restore GPIO pins
+                if (formData.gpioPins) {
+                    Object.entries(formData.gpioPins).forEach(([pin, value]) => {
+                        const input = this.gpioPinList.querySelector(`[data-pin="${pin}"]`);
+                        if (input) input.value = value;
+                    });
+                }
+
+                // Validate form after restoration
+                this.validateForm();
+            }
+        } catch (error) {
+            console.error('Error restoring form state:', error);
+            localStorage.removeItem('deviceEditorFormData');
         }
     }
 
@@ -600,6 +720,7 @@ class DeviceEditor {
             this.yamlEditor.setValue('');
             this.selectedTagsList.clear();
             this.updateTagsDisplay();
+            localStorage.removeItem('deviceEditorFormData');
             this.validationState = {
                 hasTags: false,
                 hasGpioPins: false,
@@ -607,7 +728,16 @@ class DeviceEditor {
             };
         } catch (error) {
             if (error.message.includes('Authentication required')) {
-                window.location.href = this.serverConfig.authUrl;
+                // Save current form state before redirecting
+                this.saveFormState();
+                
+                // Include form state in returnTo URL
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('formState', 'saved');
+                const returnTo = window.location.pathname + '?' + searchParams.toString() + window.location.hash;
+                
+                const state = btoa(JSON.stringify({ returnTo }));
+                window.location.href = `${this.serverConfig.authUrl}?state=${encodeURIComponent(state)}`;
                 return;
             }
             this.showToast(`Error: ${error.message}`);

@@ -125,6 +125,34 @@ button {
     transition: background-color 0.3s ease;
 }
 
+.github-login-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: #f5f5f5;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.github-logo {
+    width: 24px;
+    height: 24px;
+}
+
+.github-login {
+    background-color: #24292e;
+    padding: 8px 16px;
+}
+
+.github-login:hover {
+    background-color: #1a1f23;
+}
+
+.login-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
 button:hover {
     background-color: #1976D2;
 }
@@ -409,17 +437,48 @@ button:hover {
 /* Drop zone overlay styles */
 .drop-zone {
     position: relative;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--primary-color);
+    background: var(--drag-color);
 }
 
 .drop-zone-overlay {
-    opacity: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    color: #666;
+    z-index: 30;
     pointer-events: auto;
-    transition: opacity 0.3s;
+    transition: all 0.3s ease;
 }
 
 .drop-zone.has-content .drop-zone-overlay {
     opacity: 0;
     pointer-events: none;
+}
+
+.drop-zone .CodeMirror {
+    z-index: 20;
+    border: none;
+    height: auto !important;
+    min-height: 200px;
+}
+
+.drop-zone.drag-over .CodeMirror {
+    opacity: 0.5;
 }
 
 .tags-input-container {
@@ -499,10 +558,12 @@ button:hover {
     line-height: 1.6;
     text-align: left;
     background-color: #272822 !important; /* Force Monokai background */
+    border-radius: 4px;
+    transition: opacity 0.3s ease;
 }
 
 .CodeMirror-lines {
-    padding: 8px 0;
+    padding: 12px;
 }
 
 .CodeMirror-gutters {
@@ -516,10 +577,18 @@ button:hover {
 
 .CodeMirror-scroll {
     background-color: #272822; /* Ensure scrollable area matches */
+    min-height: 200px;
 }
 
 .CodeMirror-sizer {
     background-color: #272822; /* Ensure content area matches */
+    min-height: 200px !important;
+}
+
+/* Ensure proper stacking with drop zone */
+.CodeMirror-wrap {
+    position: relative;
+    z-index: 20;
 }
 
 /* Image drop zone specific styles */
@@ -610,15 +679,33 @@ button:hover {
     border-bottom: 1px solid #eee;
 }
 
-.github-login {
+.auth-section {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: #24292e;
+    gap: 16px;
+}
+
+.github-login-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: white;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.github-logo {
+    width: 24px;
+    height: 24px;
+}
+
+.github-login {
+    background-color: #24292e;
     color: white;
     border: none;
     border-radius: 6px;
+    padding: 8px 16px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -626,13 +713,91 @@ button:hover {
 }
 
 .github-login:hover {
-    background: #2c3338;
+    background-color: #1a1f23;
 }
 
-.github-login img {
-    width: 20px;
-    height: 20px;
-    filter: brightness(0) invert(1);
+.login-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: white;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.user-info.hidden {
+    display: none;
+}
+
+.user-avatar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #24292e;
+}
+
+.dropdown-arrow {
+    font-size: 12px;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.dropdown-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+.user-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-top: 4px;
+    min-width: 150px;
+    z-index: 100;
+}
+
+.user-dropdown.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: #24292e;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: #f5f5f5;
 }
 
 .form-actions {

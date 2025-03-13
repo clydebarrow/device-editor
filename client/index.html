@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESPHome Device Editor</title>
+    <title>ESPHome Device Config Submission</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
@@ -61,10 +61,12 @@
         <div class="header">
             <h1>ESPHome Device Editor</h1>
             <div class="auth-section">
-                <button id="githubLogin" class="github-login">
-                    <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo">
-                    <span class="login-text">Login with GitHub</span>
-                </button>
+                <div class="github-login-wrapper">
+                    <img src="github-mark.svg" alt="GitHub Logo" class="github-logo">
+                    <button id="githubLogin" class="github-login">
+                        <span class="login-text">Login with GitHub</span>
+                    </button>
+                </div>
                 <div id="userInfo" class="user-info hidden">
                     <div class="user-avatar-wrapper">
                         <img id="userAvatar" class="user-avatar" src="" alt="User Avatar">
@@ -127,7 +129,7 @@
             </div>
 
             <div class="form-group">
-                <label for="tags">Tags:</label>
+                <label for="tagInput">Tags:</label>
                 <div class="tags-container">
                     <div class="tags-input-container">
                         <input type="text" id="tagInput" placeholder="Type to add tags...">

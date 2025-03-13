@@ -12,3 +12,4 @@ BASE_BRANCH = "main"
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "9f41a0d949f44ab282d9865de743f1dc"
+preview_id = "67974c12ef4d41eb9338a695d54bf45c"
