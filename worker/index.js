@@ -1,4 +1,8 @@
-import { Octokit } from '@octokit/rest';
+import jwt from "@tsndr/cloudflare-worker-jwt"
+const { Octokit } = require("@octokit/rest");
+const forge = require('node-forge');
+
+
 
 // Helper to generate session ID
 const generateSessionId = () => crypto.randomUUID();
@@ -17,6 +21,63 @@ const jsonResponse = (data, status = 200, request) => {
     },
   });
 };
+
+
+async function generateJWT(env) {
+
+  const now = Math.floor(Date.now() / 1000);
+
+
+  const token = await jwt.sign({
+    iat: now, // Issued at
+    exp: now + 300, // Expires in 5 minutes
+    iss: env.GITHUB_CLIENT_ID, // GitHub App ID
+    alg: "RS256",
+  }, env.PRIVATE_KEY, { algorithm: 'RS256' });
+  console.log(token);
+  return token;
+}
+
+let cachedToken = null;
+let tokenExpiresAt = 0;
+
+async function getInstallationToken(env) {
+
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    console.log("Using cached token");
+    return cachedToken;
+  }
+
+// Step 1: Generate JWT
+  const jwt = await generateJWT(env)
+  console.log("Generated JWT:", jwt);
+
+// Step 2: Authenticate Octokit with the JWT
+  const appOctokit = new Octokit({ auth: jwt });
+
+// Step 3: Get Installation ID
+  const { data: installations } = await appOctokit.request("GET /app/installations");
+  if (installations.length === 0) {
+    throw new Error("No installation found for this GitHub App.");
+  }
+  const installationId = installations[0].id;
+  console.log("Installation ID:", installationId);
+
+// Step 4: Generate Installation Token
+  const { data: tokenData } = await appOctokit.request(
+      "POST /app/installations/{installation_id}/access_tokens",
+      { installation_id: installationId }
+  );
+  const installationToken = tokenData.token;
+  console.log("Installation Token:", installationToken);
+
+  cachedToken = installationToken;
+    tokenExpiresAt = Date.now() + 1000 * 59 * 60; // less than 1 hour
+
+  return installationToken;
+}
+
+
 
 async function handleAuth(request, env) {
   const url = new URL(request.url);
@@ -98,7 +159,6 @@ async function handleAuth(request, env) {
       await env.SESSIONS.put(sessionId, JSON.stringify({ token: tokenData.access_token }), { expirationTtl: 3600 * 24 });
     }
     
-    const origin = new URL(request.url).origin;
     return new Response(null, {
       status: 302,
       headers: { 
@@ -140,7 +200,10 @@ async function handleCheckAuth(request, env) {
   
   // Get user info from GitHub
   try {
-    const octokit = new Octokit({ auth: session.token });
+    const octokit = new Octokit({
+      auth: await getInstallationToken(env),
+    });
+
     const user = await octokit.users.getAuthenticated();
     
     return jsonResponse({
@@ -236,59 +299,45 @@ async function handleSubmitDevice(request, env) {
     if (!slug || !boardName || !description || !chipType || !gpioPins || !tags.length || !yamlConfig) {
       return jsonResponse({ error: 'Missing required fields' }, 400, request);
     }
-    
-    const octokit = new Octokit({ auth: session.token });
-    
-    // Get user and upstream repo info
-    const user = await octokit.users.getAuthenticated();
+
+    const octokit = new Octokit({
+      auth: await getInstallationToken(env),
+    });
+
+
     const [owner, repo] = env.UPSTREAM_REPO.split('/');
-    
-    // Fork repository if not already forked
-    try {
-      await octokit.repos.get({
-        owner: user.data.login,
-        repo,
-      });
-    } catch {
-      await octokit.repos.createFork({
-        owner,
-        repo,
-      });
-    }
-    
+
     // Generate branch name
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const shortId = Math.random().toString(36).substring(2, 10);
     const branchName = `device/${slug}-${shortId}-${timestamp}`;
     
     // Get base branch reference
-    const { data: baseRef } = await octokit.git.getRef({
+    const { data: baseRef } = await octokit.rest.git.getRef({
       owner,
       repo,
       ref: `heads/${env.BASE_BRANCH || 'dev'}`,
     });
     
     // Create new branch
-    await octokit.git.createRef({
-      owner: user.data.login,
+    await octokit.rest.git.createRef({
+      owner,
       repo,
       ref: `refs/heads/${branchName}`,
       sha: baseRef.object.sha,
     });
     
     // Process images
-    const imagePaths = [];
     for (const [key, file] of formData.entries()) {
       if (key.startsWith('image') && file instanceof File) {
         const filename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const imagePath = `${slug}/images/${filename}`;
-        imagePaths.push(imagePath);
-        
+
         const arrayBuffer = await file.arrayBuffer();
         const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
         
         await octokit.repos.createOrUpdateFileContents({
-          owner: user.data.login,
+          owner,
           repo,
           path: imagePath,
           message: `Add image ${filename} for ${slug}`,
@@ -298,17 +347,16 @@ async function handleSubmitDevice(request, env) {
       }
     }
     
-    // Create device.yaml
-    const deviceYaml = [
+    // Create device markdown file
+    const deviceMarkdown = [
       `chip: ${chipType.toLowerCase()}`,
       `board: ${slug}`,
       `name: ${boardName}`,
+      `product_link: ${productLink}`,
+      `tags: ${tags.join(', ')}`,
       '',
       '# Board Description',
-      `description: ${description}`,
-      '',
-      '# Tags',
-      `tags: ${tags.join(', ')}`,
+      description,
       '',
       '# GPIO Pin Configuration',
       ...Object.entries(gpioPins).map(([pin, func]) => `${pin}: ${func}`),
@@ -316,13 +364,13 @@ async function handleSubmitDevice(request, env) {
     
     // Create files
     const files = {
-      [`${slug}/device.yaml`]: deviceYaml,
+      [`${slug}/device.md`]: deviceMarkdown,
       [`${slug}/config.yaml`]: yamlConfig,
     };
     
     for (const [path, content] of Object.entries(files)) {
       await octokit.repos.createOrUpdateFileContents({
-        owner: user.data.login,
+        owner,
         repo,
         path,
         message: `Add ${path} for ${slug}`,
@@ -337,8 +385,8 @@ async function handleSubmitDevice(request, env) {
       repo,
       title: `Add device: ${boardName}`,
       body: `Add support for ${boardName}\n\n${description}`,
-      head: `${user.data.login}:${branchName}`,
-      base: env.BASE_BRANCH || 'dev',
+      head: branchName,
+      base: env.BASE_BRANCH || 'main',
     });
     
     // Create response with success data and clear localStorage script
