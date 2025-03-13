@@ -8,9 +8,13 @@ const forge = require('node-forge');
 const generateSessionId = () => crypto.randomUUID();
 
 // Helper to handle responses
-const jsonResponse = (data, status = 200, request) => {
+const jsonResponse = (data, status = 200, request, error = null) => {
   const origin = request.headers.get('Origin') || '*';
-  return new Response(JSON.stringify(data), {
+  const responseData = { ...data };
+  if (error) {
+    responseData.errorDetail = error.message || error.toString();
+  }
+  return new Response(JSON.stringify(responseData), {
     status,
     headers: {
       'Content-Type': 'application/json',
@@ -97,7 +101,7 @@ async function handleAuth(request, env) {
     // Store session
     if (!env.SESSIONS) {
       console.error('SESSIONS KV namespace is not defined');
-      return jsonResponse({ error: 'Server configuration error' }, 500, request);
+      return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
     }
     await env.SESSIONS.put(sessionId, JSON.stringify({ pending: true, returnTo }), { expirationTtl: 3600 });
     
@@ -115,7 +119,7 @@ async function handleAuth(request, env) {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     if (!code) {
-      return jsonResponse({ error: 'No code provided' }, 400, request);
+      return jsonResponse({ error: 'No code provided' }, 400, request, new Error('No code provided'));
     }
     
     let returnTo = '/';
@@ -142,7 +146,7 @@ async function handleAuth(request, env) {
     
     const tokenData = await tokenResponse.json();
     if (!tokenData.access_token) {
-      return jsonResponse({ error: 'Failed to get access token' }, 400, request);
+      return jsonResponse({ error: 'Failed to get access token' }, 400, request, new Error('Failed to get access token'));
     }
     
     // Get session ID from cookie
@@ -153,7 +157,7 @@ async function handleAuth(request, env) {
       // Store token in session
       if (!env.SESSIONS) {
         console.error('SESSIONS KV namespace is not defined');
-        return jsonResponse({ error: 'Server configuration error' }, 500, request);
+        return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
       }
       console.log('Storing session token for:', sessionId);
       await env.SESSIONS.put(sessionId, JSON.stringify({ token: tokenData.access_token }), { expirationTtl: 3600 * 24 });
@@ -181,7 +185,7 @@ async function handleCheckAuth(request, env) {
   
   if (!env.SESSIONS) {
     console.error('SESSIONS KV namespace is not defined');
-    return jsonResponse({ error: 'Server configuration error' }, 500);
+    return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
   }
 
   console.log('Checking session:', sessionId);
@@ -214,7 +218,7 @@ async function handleCheckAuth(request, env) {
   } catch (error) {
     // Clear invalid session
     await env.SESSIONS.delete(sessionId);
-    return jsonResponse({ authenticated: false }, 200, request);
+    return jsonResponse({ authenticated: false }, 200, request, error);
   }
 }
 
@@ -222,7 +226,7 @@ async function handleLogout(request, env) {
   const cookie = request.headers.get('Cookie');
   const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
   const origin = request.headers.get('Origin') || '*';
-  
+
   // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -235,55 +239,54 @@ async function handleLogout(request, env) {
       }
     });
   }
-  
+
   // Only allow POST method
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Credentials': 'true'
+        }
+      });
+    }
+
+    if (sessionId && env.SESSIONS) {
+      console.log('Logging out session:', sessionId);
+      await env.SESSIONS.delete(sessionId);
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
       headers: {
+        'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Credentials': 'true'
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Cookie'
       }
     });
   }
-  
-  if (sessionId && env.SESSIONS) {
-    console.log('Logging out session:', sessionId);
-    await env.SESSIONS.delete(sessionId);
-  }
-  
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
-    headers: {
-      'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Cookie'
-    }
-  });
-}
 
 async function handleSubmitDevice(request, env) {
   const cookie = request.headers.get('Cookie');
   const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
-  
+
   if (!sessionId) {
-    return jsonResponse({ error: 'Authentication required' }, 401, request);
+    return jsonResponse({error: 'Authentication required'}, 401, request);
   }
-  
+
   const sessionData = await env.SESSIONS.get(sessionId);
   if (!sessionData) {
-    return jsonResponse({ error: 'Authentication required' }, 401, request);
+    return jsonResponse({error: 'Authentication required'}, 401, request, new Error('No session data found'));
   }
-  
+
   const session = JSON.parse(sessionData);
   if (!session.token) {
-    return jsonResponse({ error: 'Authentication required' }, 401, request);
+    return jsonResponse({error: 'Authentication required'}, 401, request, new Error('No token in session'));
   }
-  
+
   try {
     const formData = await request.formData();
     const slug = formData.get('slug');
@@ -294,10 +297,10 @@ async function handleSubmitDevice(request, env) {
     const gpioPins = JSON.parse(formData.get('gpioPins') || '{}');
     const tags = formData.get('tags')?.split(',') || [];
     const yamlConfig = formData.get('yamlConfig');
-    
+
     // Validate required fields
     if (!slug || !boardName || !description || !chipType || !gpioPins || !tags.length || !yamlConfig) {
-      return jsonResponse({ error: 'Missing required fields' }, 400, request);
+      return jsonResponse({error: 'Missing required fields'}, 400, request);
     }
 
     const octokit = new Octokit({
@@ -311,14 +314,29 @@ async function handleSubmitDevice(request, env) {
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const shortId = Math.random().toString(36).substring(2, 10);
     const branchName = `device/${slug}-${shortId}-${timestamp}`;
-    
+
     // Get base branch reference
-    const { data: baseRef } = await octokit.rest.git.getRef({
+    const {data: baseRef} = await octokit.rest.git.getRef({
       owner,
       repo,
       ref: `heads/${env.BASE_BRANCH || 'dev'}`,
     });
-    
+
+    // Check if branch already exists
+    try {
+      await octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${branchName}`,
+      });
+      return jsonResponse({error: `Branch ${branchName} already exists`}, 400, request);
+    } catch (error) {
+      if (error.status !== 404) {
+        console.error('Error checking branch existence:', error);
+        return jsonResponse({error: 'Internal server error'}, 500, request, error);
+      }
+    }
+
     // Create new branch
     await octokit.rest.git.createRef({
       owner,
@@ -326,7 +344,7 @@ async function handleSubmitDevice(request, env) {
       ref: `refs/heads/${branchName}`,
       sha: baseRef.object.sha,
     });
-    
+
     // Process images
     for (const [key, file] of formData.entries()) {
       if (key.startsWith('image') && file instanceof File) {
@@ -335,7 +353,7 @@ async function handleSubmitDevice(request, env) {
 
         const arrayBuffer = await file.arrayBuffer();
         const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        
+
         await octokit.repos.createOrUpdateFileContents({
           owner,
           repo,
@@ -346,28 +364,28 @@ async function handleSubmitDevice(request, env) {
         });
       }
     }
-    
+
     // Create device markdown file
     const deviceMarkdown = [
-      `chip: ${chipType.toLowerCase()}`,
+      `---`,
+      `chip: ${chipType}`,
       `board: ${slug}`,
       `name: ${boardName}`,
       `product_link: ${productLink}`,
-      `tags: ${tags.join(', ')}`,
+      `tags: [${tags.join(', ')}]`,
+      `gpio_pins:`,
+      ...Object.entries(gpioPins).map(([pin, func]) => `  ${pin}: ${func}`),
+      `---`,
       '',
-      '# Board Description',
       description,
-      '',
-      '# GPIO Pin Configuration',
-      ...Object.entries(gpioPins).map(([pin, func]) => `${pin}: ${func}`),
     ].join('\n');
-    
+
     // Create files
     const files = {
       [`${slug}/device.md`]: deviceMarkdown,
       [`${slug}/config.yaml`]: yamlConfig,
     };
-    
+
     for (const [path, content] of Object.entries(files)) {
       await octokit.repos.createOrUpdateFileContents({
         owner,
@@ -378,9 +396,9 @@ async function handleSubmitDevice(request, env) {
         branch: branchName,
       });
     }
-    
+
     // Create pull request
-    const { data: pr } = await octokit.pulls.create({
+    const {data: pr} = await octokit.pulls.create({
       owner,
       repo,
       title: `Add device: ${boardName}`,
@@ -388,7 +406,7 @@ async function handleSubmitDevice(request, env) {
       head: branchName,
       base: env.BASE_BRANCH || 'main',
     });
-    
+
     // Create response with success data and clear localStorage script
     const responseHtml = `
       <script>
@@ -405,7 +423,7 @@ async function handleSubmitDevice(request, env) {
         }, '*');
       </script>
     `;
-    
+
     return new Response(responseHtml, {
       status: 200,
       headers: {
@@ -416,7 +434,7 @@ async function handleSubmitDevice(request, env) {
     });
   } catch (error) {
     console.error('Error submitting device:', error);
-    return jsonResponse({ error: 'Failed to submit device' }, 500, request);
+    return jsonResponse({error: 'Failed to submit device'}, 500, request, error);
   }
 }
 
@@ -441,10 +459,10 @@ export default {
         },
       });
     }
-    
+
     // Route requests
     const url = new URL(request.url);
-    
+
     try {
       // Auth routes
       if (url.pathname.startsWith('/auth/')) {
@@ -457,17 +475,17 @@ export default {
         const authResponse = await handleAuth(request, env);
         if (authResponse) return authResponse;
       }
-      
+
       // Device submission
       if (url.pathname === '/submit' && request.method === 'POST') {
         return await handleSubmitDevice(request, env);
       }
-      
+
       // Serve static files or handle other routes here
-      return new Response('Not found', { status: 404 });
+      return new Response('Not found', {status: 404});
     } catch (error) {
       console.error('Error handling request:', error);
-      return jsonResponse({ error: 'Internal server error' }, 500, request);
+      return jsonResponse({error: 'Internal server error'}, 500, request, error);
     }
   },
-};
+}
