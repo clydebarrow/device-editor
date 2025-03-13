@@ -54,7 +54,6 @@ async function getInstallationToken(env) {
 
 // Step 1: Generate JWT
   const jwt = await generateJWT(env)
-  console.log("Generated JWT:", jwt);
 
 // Step 2: Authenticate Octokit with the JWT
   const appOctokit = new Octokit({ auth: jwt });
@@ -65,7 +64,7 @@ async function getInstallationToken(env) {
     throw new Error("No installation found for this GitHub App.");
   }
   const installationId = installations[0].id;
-  console.log("Installation ID:", installationId);
+  //console.log("Installation ID:", installationId);
 
 // Step 4: Generate Installation Token
   const { data: tokenData } = await appOctokit.request(
@@ -73,7 +72,7 @@ async function getInstallationToken(env) {
       { installation_id: installationId }
   );
   const installationToken = tokenData.token;
-  console.log("Installation Token:", installationToken);
+  //console.log("Installation Token:", installationToken);
 
   cachedToken = installationToken;
     tokenExpiresAt = Date.now() + 1000 * 59 * 60; // less than 1 hour
@@ -190,7 +189,6 @@ async function handleCheckAuth(request, env) {
 
   console.log('Checking session:', sessionId);
   const  sessionData = await env.SESSIONS.get(sessionId);
-  console.log('Session data:', sessionData);
 
   if (!sessionData) {
     console.log('No session data found');
@@ -201,12 +199,10 @@ async function handleCheckAuth(request, env) {
   if (!session.token) {
     return jsonResponse({ authenticated: false }, 200, request);
   }
-  
+
   // Get user info from GitHub
   try {
-    const octokit = new Octokit({
-      auth: await getInstallationToken(env),
-    });
+    const octokit = new Octokit({ auth: session.token });
 
     const user = await octokit.users.getAuthenticated();
     
@@ -216,6 +212,7 @@ async function handleCheckAuth(request, env) {
       avatar_url: user.data.avatar_url,
     }, 200, request);
   } catch (error) {
+    console.log('Error checking auth:', error);
     // Clear invalid session
     await env.SESSIONS.delete(sessionId);
     return jsonResponse({ authenticated: false }, 200, request, error);
