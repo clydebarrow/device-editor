@@ -31,7 +31,6 @@ async function putSession(env, sessionId, data) {
   }
   const sessionData = JSON.parse(await env.SESSIONS.get(sessionId) || '{}');
   const updatedData = {...sessionData, ...data};
-  console.log('Storing session data:', data, updatedData);
   return await env.SESSIONS.put(sessionId, JSON.stringify(updatedData), {expirationTtl: 3600 * 24});
 }
 
@@ -60,9 +59,9 @@ async function generateJWT(env) {
   const token = await jwt.sign({
     iat: now, // Issued at
     exp: now + 300, // Expires in 5 minutes
-    iss: env.GITHUB_CLIENT_ID, // GitHub App ID
+    iss: env.APP_ID, // GitHub App ID
     alg: "RS256",
-  }, env.PRIVATE_KEY, { algorithm: 'RS256' });
+  }, env.APP_KEY, { algorithm: 'RS256' });
   return token;
 }
 
@@ -113,8 +112,8 @@ async function handleAuth(request, env) {
     const returnTo = url.searchParams.get('returnTo') || '/';
     
     const redirectUrl = new URL('https://github.com/login/oauth/authorize');
-    redirectUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
-    redirectUrl.searchParams.set('scope', 'repo');
+    redirectUrl.searchParams.set('client_id', env.OAUTH_ID);
+    redirectUrl.searchParams.set('scope', 'read:user');
     redirectUrl.searchParams.set('redirect_uri', `${origin}/auth/github/callback`);
     redirectUrl.searchParams.set('state', btoa(JSON.stringify({ returnTo })));
     
@@ -158,8 +157,8 @@ async function handleAuth(request, env) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        client_id: env.GITHUB_CLIENT_ID,
-        client_secret: env.GITHUB_CLIENT_SECRET,
+        client_id: env.OAUTH_ID,
+        client_secret: env.OAUTH_SECRET,
         code,
       }),
     });
@@ -179,7 +178,6 @@ async function handleAuth(request, env) {
         console.error('SESSIONS KV namespace is not defined');
         return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
       }
-      console.log('Storing session token for:', sessionId);
       await env.SESSIONS.put(sessionId, JSON.stringify({ token: tokenData.access_token }), { expirationTtl: 3600 * 24 });
     }
 
