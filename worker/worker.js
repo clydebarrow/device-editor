@@ -404,7 +404,7 @@ async function handleSubmitDevice(request, env) {
     });
 
     // Create response with success data and clear localStorage script
-    return jsonResponse({success: true}, 200, request);
+    return jsonResponse({success: true, pr_url: pr.url}, 200, request);
   } catch (error) {
     console.error('Error submitting device:', error);
     return jsonResponse({error: 'Failed to submit device'}, 500, request, error);
@@ -412,7 +412,7 @@ async function handleSubmitDevice(request, env) {
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env, _) {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       const origin = request.headers.get('Origin') || '*';

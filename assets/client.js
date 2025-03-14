@@ -388,10 +388,10 @@ class DeviceEditor {
     generateSlug(text) {
         return text
             .toLowerCase()
-            .replace(/[^a-z0-9\-\s\.]/g, '') // Keep only letters, numbers, dots, hyphens, and spaces
+            .replace(/[^a-z0-9\-\s.]/g, '') // Keep only letters, numbers, dots, hyphens, and spaces
             .replace(/\s+/g, '-')            // Replace spaces with hyphens
-            .replace(/\-+/g, '-')            // Replace multiple hyphens with single hyphen
-            .replace(/^\-+|\-+$/g, '');      // Remove leading/trailing hyphens
+            .replace(/-+/g, '-')            // Replace multiple hyphens with single hyphen
+            .replace(/^-+|-+$/g, '');      // Remove leading/trailing hyphens
     }
 
     showToast(message, duration = 3000) {
