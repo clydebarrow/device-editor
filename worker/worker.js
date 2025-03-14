@@ -431,7 +431,7 @@ async function handleSubmitDevice(request, env) {
       owner,
       repo,
       title: `Add device: ${boardName}`,
-      body: `Add support for ${boardName}\n\n${description}`,
+      body: `Add support for ${boardName}\n\n${description}\n\nSubmitted by @${session.username}`,
       head: branchName,
       base: env.BASE_BRANCH || 'main',
     });
