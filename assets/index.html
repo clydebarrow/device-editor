@@ -61,6 +61,32 @@
             position: relative;
             z-index: 20;
         }
+
+        .yaml-validate-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 30;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .yaml-validate-button:hover {
+            background: #45a049;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -193,6 +219,7 @@
             <div id="yamlDropZone" class="drop-zone">
                 <textarea id="yamlCode" name="yamlCode" required></textarea>
                 <div class="drop-zone-overlay">Drop YAML file here or click to paste</div>
+                <button type="button" id="yamlValidateButton" class="yaml-validate-button">Validate YAML</button>
             </div>
             <div class="error-message"></div>
         </div>
@@ -230,6 +257,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
-<script src="client.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<script src="/client.js" type="module"></script>
 </body>
 </html>

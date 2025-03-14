@@ -2,6 +2,7 @@ name = "device-editor"
 main = "worker/worker.js"
 compatibility_date = "2025-03-12"
 compatibility_flags = ["nodejs_compat"]
+find_additional_modules = true
 
 [vars]
 UPSTREAM_REPO = "clydebarrow/device-configs"

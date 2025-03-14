@@ -1,3 +1,5 @@
+import { validateYaml } from './yaml-validator.js';
+
 class DeviceEditor {
     constructor() {
         // Initialize form elements
@@ -35,9 +37,35 @@ class DeviceEditor {
             lineWrapping: true
         });
 
-        // Add change handler to save YAML content
+        // Initialize validation button
+        this.yamlValidateButton = document.getElementById('yamlValidateButton');
+        this.yamlValidationTimeout = null;
+
+        // Add change handler to save YAML content and show validation button
         this.yamlEditor.on('change', () => {
             this.saveFormState();
+            this.yamlValidateButton.classList.add('visible');
+            
+            // Clear any existing timeout
+            if (this.yamlValidationTimeout) {
+                clearTimeout(this.yamlValidationTimeout);
+            }
+            // Set a new timeout to hide the button after 5 seconds of no changes
+            this.yamlValidationTimeout = setTimeout(() => {
+                this.yamlValidateButton.classList.remove('visible');
+            }, 60000);
+        });
+
+        // Handle validation button click
+        this.yamlValidateButton.addEventListener('click', () => {
+            const isValid = this.validateYaml();
+            this.yamlValidateButton.classList.remove('visible');
+            
+            if (!isValid) {
+                // Get the error message element and scroll to it
+                const errorElement = this.yamlDropZone.closest('.form-group').querySelector('.error-message');
+                errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
 
         // Server configuration
@@ -1057,16 +1085,48 @@ class DeviceEditor {
     validateYaml() {
         const formGroup = this.yamlDropZone.closest('.form-group');
         const errorElement = formGroup.querySelector('.error-message');
+        const yamlContent = this.yamlEditor.getValue().trim();
         
-        if (!this.yamlEditor.getValue().trim()) {
+        if (!yamlContent) {
             formGroup.classList.add('error');
             errorElement.textContent = 'Sample YAML configuration is required';
             return false;
         }
-        
-        formGroup.classList.remove('error');
-        errorElement.textContent = '';
-        return true;
+
+        try {
+            const { hasInclude, hasExternalComponents, hasWifi, wifiValid, parseError } = validateYaml(yamlContent);
+            
+            if (parseError) {
+                formGroup.classList.add('error');
+                errorElement.textContent = `YAML Error: ${parseError}`;
+                return false;
+            }
+
+            let errors = [];
+            if (hasInclude) {
+                errors.push('!include tags are not allowed');
+            }
+            if (hasExternalComponents) {
+                errors.push('external_components are not allowed');
+            }
+            if (hasWifi && !wifiValid) {
+                errors.push('wifi configuration must only contain ssid and password with !secret values');
+            }
+
+            if (errors.length > 0) {
+                formGroup.classList.add('error');
+                errorElement.textContent = errors.join('; ');
+                return false;
+            }
+            
+            formGroup.classList.remove('error');
+            errorElement.textContent = '';
+            return true;
+        } catch (error) {
+            formGroup.classList.add('error');
+            errorElement.textContent = `Validation error: ${error.message}`;
+            return false;
+        }
     }
 
     resetForm() {
