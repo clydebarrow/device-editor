@@ -46,6 +46,7 @@ class DeviceEditor {
             authUrl: '/auth/github',
             authCheckUrl: '/auth/check',
             logoutUrl: '/auth/logout',
+            checkSlugUrl: '/checkSlug',
             maxImageSize: 1024 * 1024  // 5MB max per image
         };
 
@@ -251,15 +252,10 @@ class DeviceEditor {
         // Add validation for GPIO pins when changed
         this.gpioPinList.addEventListener('change', () => this.validateGpioPins());
 
-        // Add validation for tags when added/removed
-        this.tagInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ',') {
-                event.preventDefault();
-                const tag = this.tagInput.value.trim().replace(/,/g, '');
-                if (tag) {
-                    this.addTag(tag);
-                    this.validateTags();
-                }
+        // Add clear form button handler
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the form? All unsaved changes will be lost.')) {
+                this.resetForm();
             }
         });
 
@@ -329,18 +325,18 @@ class DeviceEditor {
 
         // Board name and slug generation
         const boardNameInput = document.getElementById('boardName');
-        const slugInput = document.getElementById('slug');
-        
+
         boardNameInput.addEventListener('input', () => {
             const boardName = boardNameInput.value;
             if (boardName) {
-                slugInput.value = this.generateSlug(boardName);
+                this.slugInput.value = this.generateSlug(boardName);
+                this.validateSlug();
                 this.saveFormState();
             }
         });
 
         // Also save state when slug is manually edited
-        slugInput.addEventListener('input', () => {
+        this.slugInput.addEventListener('input', () => {
             this.saveFormState();
         });
 
@@ -405,8 +401,12 @@ class DeviceEditor {
     handleTagInput(event) {
         const input = event.target.value.toLowerCase();
         if (input) {
+            // Only show suggestions that exactly start with the input
             const suggestions = this.availableTags
-                .filter(tag => tag.toLowerCase().includes(input) && !this.selectedTagsList.has(tag));
+                .filter(tag => 
+                    tag.toLowerCase().startsWith(input) && 
+                    !this.selectedTagsList.has(tag)
+                );
             
             if (suggestions.length > 0) {
                 this.tagSuggestions.innerHTML = suggestions
@@ -429,9 +429,13 @@ class DeviceEditor {
     handleTagKeydown(event) {
         if (event.key === 'Enter') {
             event.preventDefault();
-            const firstSuggestion = this.tagSuggestions.querySelector('.tag-suggestion-item');
-            if (firstSuggestion) {
-                this.addTag(firstSuggestion.dataset.tag);
+            const suggestions = this.tagSuggestions.querySelectorAll('.tag-suggestion-item');
+            if (suggestions.length === 1) {
+                const selectedTag = suggestions[0].dataset.tag;
+                this.addTag(selectedTag);
+                event.target.value = '';
+                this.tagSuggestions.innerHTML = '';
+                this.tagSuggestions.style.display = 'none';
             }
         }
     }
@@ -585,6 +589,7 @@ class DeviceEditor {
             yamlContent: this.yamlEditor.getValue(),
             tags: Array.from(this.selectedTagsList),
             gpioPins: {},
+            images: [],
             timestamp: new Date().toISOString()
         };
 
@@ -595,15 +600,20 @@ class DeviceEditor {
             }
         });
 
-        localStorage.setItem('deviceEditorFormData', JSON.stringify(formData));
+        // Save images
+        this.imagePreview.querySelectorAll('.preview-image').forEach(img => {
+            formData.images.push(img.src);
+        });
+
+        localStorage.setItem(this.formDataStorageKey, JSON.stringify(formData));
     }
 
     restoreFormState() {
         try {
-            const savedData = localStorage.getItem('deviceEditorFormData');
+            const savedData = localStorage.getItem(this.formDataStorageKey);
             if (savedData) {
                 const formData = JSON.parse(savedData);
-                
+
                 // Restore basic form fields
                 if (formData.boardName) this.formElements.boardName.value = formData.boardName;
                 if (formData.description) this.formElements.description.value = formData.description;
@@ -613,18 +623,18 @@ class DeviceEditor {
                     this.updateGpioPinList(formData.chipType);
                 }
                 if (formData.slug) this.slugInput.value = formData.slug;
-                
+
                 // Restore YAML content
                 if (formData.yamlContent) {
                     this.yamlEditor.setValue(formData.yamlContent);
                     this.yamlDropZone.classList.add('has-content');
                 }
-                
+
                 // Restore tags
                 if (formData.tags) {
                     formData.tags.forEach(tag => this.addTag(tag));
                 }
-                
+
                 // Restore GPIO pins
                 if (formData.gpioPins) {
                     Object.entries(formData.gpioPins).forEach(([pin, value]) => {
@@ -633,17 +643,48 @@ class DeviceEditor {
                     });
                 }
 
+                // Restore images
+                if (formData.images) {
+                    formData.images.forEach(src => {
+                        const img = document.createElement('img');
+                        img.src = src;
+                        img.className = 'preview-image';
+
+                        const container = document.createElement('div');
+                        container.className = 'image-container';
+                        container.appendChild(img);
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'remove-image';
+                        removeBtn.innerHTML = '×';
+                        removeBtn.onclick = () => {
+                            container.remove();
+                            this.updateImageValidation();
+                        };
+
+                        container.appendChild(removeBtn);
+                        this.imagePreview.appendChild(container);
+                    });
+                    this.updateImageValidation();
+                }
+
                 // Validate form after restoration
                 this.validateForm();
             }
         } catch (error) {
             console.error('Error restoring form state:', error);
-            localStorage.removeItem('deviceEditorFormData');
+            localStorage.removeItem(this.formDataStorageKey);
         }
     }
 
     async handleSubmit() {
+        const submitBtn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
         try {
+            // Show spinner
+            spinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+
             const formData = new FormData();
 
             // Add basic form fields
@@ -674,7 +715,7 @@ class DeviceEditor {
             // Add YAML configuration
             formData.append('yamlConfig', this.yamlEditor.getValue());
 
-            // Add images,
+            // Add images
             const imageContainers = this.imagePreview.querySelectorAll('.image-container');
             for (let i = 0; i < imageContainers.length; i++) {
                 const img = imageContainers[i].querySelector('img');
@@ -711,23 +752,27 @@ class DeviceEditor {
             }
             
             // Clear form after successful submission
-            this.form.reset();
-            this.imagePreview.innerHTML = '';
-            this.yamlEditor.setValue('');
-            this.selectedTagsList.forEach(tag => {this.removeTag(tag)});
-            this.selectedTagsList.clear();
-            localStorage.removeItem(this.formDataStorageKey);
-            this.validationState = {
-                hasTags: false,
-                hasGpioPins: false,
-                hasImages: false,
-                wasValidated: false,
-            };
+            this.resetForm();
         } catch (error) {
             if (error.message.includes('Authentication required')) {
                 // Save current form state before redirecting
                 this.saveFormState();
-                
+
+                // Include form state in returnTo URL
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('formState', 'saved');
+                const returnTo = window.location.pathname + '?' + searchParams.toString() + window.location.hash;
+
+                const state = btoa(JSON.stringify({ returnTo }));
+                window.location.href = `${this.serverConfig.authUrl}?state=${encodeURIComponent(state)}`;
+                return;
+            }
+            this.showToast(`Error: ${error.message}`);
+            console.error('Submission error:', error);
+            if (error.message.includes('Authentication required')) {
+                // Save current form state before redirecting
+                this.saveFormState();
+
                 // Include form state in returnTo URL
                 const searchParams = new URLSearchParams(window.location.search);
                 searchParams.set('formState', 'saved');
@@ -739,6 +784,10 @@ class DeviceEditor {
             }
             this.showToast(`Error: ${error.message}`);
             console.error('Submission error:', error);
+        } finally {
+            // Hide spinner
+            spinner.classList.add('hidden');
+            submitBtn.disabled = false;
         }
     }
 
@@ -845,13 +894,65 @@ class DeviceEditor {
         }
     }
 
-    validateSlug(event) {
-        const input = event.target;
-        const value = input.value;
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    async checkSlugAvailability(input) {
+        const slug = input.value.trim();
+        if (!slug) return;
+
+        const formGroup = input.closest('.form-group');
+        const errorElement = formGroup.querySelector('.error-message');
+
+        try {
+            const response = await fetch(`${this.serverConfig.checkSlugUrl}?slug=${encodeURIComponent(slug)}`, {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            
+            if (!data.available) {
+                formGroup.classList.add('error');
+                errorElement.textContent = 'This slug is already taken';
+                return false;
+            }
+            formGroup.classList.remove('error');
+            errorElement.textContent = '';
+            return true;
+        } catch (error) {
+            console.error('Error checking slug availability:', error);
+            return true; // Don't block form submission on API errors
+        }
+    }
+
+    validateSlug() {
+        const value = this.slugInput.value;
         const sanitized = value.toLowerCase().replace(/[^a-z0-9-.]/, '');
+        const formGroup = this.slugInput.closest('.form-group');
+        const errorElement = formGroup.querySelector('.error-message');
         
         if (value !== sanitized) {
             input.value = sanitized;
+        }
+
+        // Clear any existing error state
+        formGroup.classList.remove('error');
+        errorElement.textContent = '';
+
+        // If we have a value, check its availability
+        if (sanitized) {
+            if (!this.checkSlugDebounced) {
+                this.checkSlugDebounced = this.debounce(this.checkSlugAvailability.bind(this), 500);
+            }
+            this.checkSlugDebounced(this.slugInput);
         }
     }
 
@@ -966,6 +1067,48 @@ class DeviceEditor {
         formGroup.classList.remove('error');
         errorElement.textContent = '';
         return true;
+    }
+
+    resetForm() {
+        // Reset all form fields
+        this.form.reset();
+        this.imagePreview.innerHTML = '';
+        this.yamlEditor.setValue('');
+        this.selectedTagsList.forEach(tag => {this.removeTag(tag)});
+        this.selectedTagsList.clear();
+        localStorage.removeItem(this.formDataStorageKey);
+        
+        // Reset validation state
+        this.validationState = {
+            hasTags: false,
+            hasGpioPins: false,
+            hasImages: false,
+            wasValidated: false,
+        };
+        
+        // Clear all error states and messages
+        this.form.querySelectorAll('.form-group').forEach(group => {
+            group.classList.remove('error');
+            const errorMessage = group.querySelector('.error-message');
+            if (errorMessage) {
+                errorMessage.textContent = '';
+            }
+        });
+        
+        // Reset CodeMirror's error state if any
+        const yamlContainer = this.yamlEditor.getWrapperElement();
+        yamlContainer.classList.remove('error');
+        
+        // Reset GPIO pin list
+        this.gpioPinList.innerHTML = '<p class="select-chip-message">Please select a chip type to view available pins</p>';
+        
+        // Reset tag suggestions
+        this.tagSuggestions.style.display = 'none';
+        this.tagSuggestions.innerHTML = '';
+        
+        // Reset drop zones
+        this.yamlDropZone.classList.remove('has-content', 'drag-over');
+        this.imageDropZone.classList.remove('has-content', 'drag-over');
     }
 
     validateForm(always=false) {

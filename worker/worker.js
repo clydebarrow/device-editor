@@ -36,7 +36,6 @@ async function generateJWT(env) {
     iss: env.GITHUB_CLIENT_ID, // GitHub App ID
     alg: "RS256",
   }, env.PRIVATE_KEY, { algorithm: 'RS256' });
-  console.log(token);
   return token;
 }
 
@@ -46,7 +45,6 @@ let tokenExpiresAt = 0;
 async function getInstallationToken(env) {
 
   if (cachedToken && Date.now() < tokenExpiresAt) {
-    console.log("Using cached token");
     return cachedToken;
   }
 
@@ -62,7 +60,6 @@ async function getInstallationToken(env) {
     throw new Error("No installation found for this GitHub App.");
   }
   const installationId = installations[0].id;
-  //console.log("Installation ID:", installationId);
 
 // Step 4: Generate Installation Token
   const { data: tokenData } = await appOctokit.request(
@@ -70,7 +67,6 @@ async function getInstallationToken(env) {
       { installation_id: installationId }
   );
   const installationToken = tokenData.token;
-  //console.log("Installation Token:", installationToken);
 
   cachedToken = installationToken;
     tokenExpiresAt = Date.now() + 1000 * 59 * 60; // less than 1 hour
@@ -264,6 +260,43 @@ async function handleLogout(request, env) {
     });
   }
 
+async function handleCheckSlug(request, env) {
+  const url = new URL(request.url);
+  const slug = url.searchParams.get('slug');
+  
+  if (!slug) {
+    return jsonResponse({ error: 'No slug provided' }, 400, request);
+  }
+
+  try {
+    // Get installation token for the GitHub App
+    const token = await getInstallationToken(env);
+    const octokit = new Octokit({ auth: token });
+
+    // Check if the content/devices/<slug> directory exists in the repo
+    const [owner, repo] = env.UPSTREAM_REPO.split('/');
+    try {
+      await octokit.rest.repos.getContent({
+        owner: owner,
+        repo: repo,
+        path: `content/devices/${slug}`
+      });
+      // If we get here, the directory exists
+      console.log(`Slug ${slug} is not available`);
+      return jsonResponse({ available: false }, 200, request);
+    } catch (error) {
+      if (error.status === 404) {
+        // Directory doesn't exist, slug is available
+        return jsonResponse({ available: true }, 200, request);
+      }
+      throw error; // Re-throw other errors
+    }
+  } catch (error) {
+    console.error('Error checking slug availability:', error);
+    return jsonResponse({ error: 'Failed to check slug availability' }, 500, request, error);
+  }
+}
+
 async function handleSubmitDevice(request, env) {
   const cookie = request.headers.get('Cookie');
   const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
@@ -404,7 +437,7 @@ async function handleSubmitDevice(request, env) {
     });
 
     // Create response with success data and clear localStorage script
-    return jsonResponse({success: true, pr_url: pr.url}, 200, request);
+    return jsonResponse({success: true, pr_url: pr.html_url}, 200, request);
   } catch (error) {
     console.error('Error submitting device:', error);
     return jsonResponse({error: 'Failed to submit device'}, 500, request, error);
@@ -447,6 +480,11 @@ export default {
       // Device submission
       if (url.pathname === '/submit' && request.method === 'POST') {
         return await handleSubmitDevice(request, env);
+      }
+
+      // Check slug availability
+      if (url.pathname === '/checkSlug' && request.method === 'GET') {
+        return await handleCheckSlug(request, env);
       }
 
       // Serve static files or handle other routes here
