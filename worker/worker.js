@@ -24,6 +24,33 @@ const jsonResponse = (data, status = 200, request, error = null) => {
   });
 };
 
+async function putSession(env, sessionId, data) {
+  if (!env.SESSIONS) {
+    console.error('SESSIONS KV namespace is not defined');
+    throw new Error('Server configuration error');
+  }
+  const sessionData = JSON.parse(await env.SESSIONS.get(sessionId) || '{}');
+  const updatedData = {...sessionData, ...data};
+  console.log('Storing session data:', data, updatedData);
+  return await env.SESSIONS.put(sessionId, JSON.stringify(updatedData), {expirationTtl: 3600 * 24});
+}
+
+async function deleteSession(env, sessionId) {
+  if (!env.SESSIONS) {
+    console.error('SESSIONS KV namespace is not defined');
+    throw new Error('Server configuration error');
+  }
+  return await env.SESSIONS.delete(sessionId);
+}
+
+async function getFromSession(env, sessionId, key) {
+    if (!env.SESSIONS) {
+        console.error('SESSIONS KV namespace is not defined');
+        throw new Error('Server configuration error');
+    }
+    const sessionData = JSON.parse(env.SESSIONS.get(sessionId) || '{}');
+    return await sessionData.get(key);
+}
 
 async function generateJWT(env) {
 
@@ -96,8 +123,8 @@ async function handleAuth(request, env) {
       console.error('SESSIONS KV namespace is not defined');
       return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
     }
-    await env.SESSIONS.put(sessionId, JSON.stringify({ pending: true, returnTo }), { expirationTtl: 3600 });
-    
+    await env.SESSIONS.put(sessionId, JSON.stringify({ pending: true, returnTo: returnTo }), { expirationTtl: 3600 });
+
     return new Response(null, {
       status: 302,
       headers: {
@@ -106,7 +133,7 @@ async function handleAuth(request, env) {
       },
     });
   }
-  
+
   // GitHub OAuth callback
   if (url.pathname === '/auth/github/callback') {
     const code = url.searchParams.get('code');
@@ -114,7 +141,7 @@ async function handleAuth(request, env) {
     if (!code) {
       return jsonResponse({ error: 'No code provided' }, 400, request, new Error('No code provided'));
     }
-    
+
     let returnTo = '/';
     try {
       const stateData = JSON.parse(atob(state));
@@ -122,7 +149,7 @@ async function handleAuth(request, env) {
     } catch (e) {
       console.error('Failed to parse state:', e);
     }
-    
+
     // Exchange code for token
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
@@ -136,16 +163,16 @@ async function handleAuth(request, env) {
         code,
       }),
     });
-    
+
     const tokenData = await tokenResponse.json();
     if (!tokenData.access_token) {
       return jsonResponse({ error: 'Failed to get access token' }, 400, request, new Error('Failed to get access token'));
     }
-    
+
     // Get session ID from cookie
     const cookie = request.headers.get('Cookie');
     const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
-    
+
     if (sessionId) {
       // Store token in session
       if (!env.SESSIONS) {
@@ -155,16 +182,16 @@ async function handleAuth(request, env) {
       console.log('Storing session token for:', sessionId);
       await env.SESSIONS.put(sessionId, JSON.stringify({ token: tokenData.access_token }), { expirationTtl: 3600 * 24 });
     }
-    
+
     return new Response(null, {
       status: 302,
-      headers: { 
+      headers: {
         'Location': `${returnTo}`,
         'Set-Cookie': `session=${sessionId}; HttpOnly; Secure; SameSite=Lax; Path=/`
       },
     });
   }
-  
+
   return null;
 }
 
@@ -194,23 +221,30 @@ async function handleCheckAuth(request, env) {
     return jsonResponse({ authenticated: false }, 200, request);
   }
 
-  // Get user info from GitHub
-  try {
-    const octokit = new Octokit({ auth: session.token });
+  if (session.pending  || !session.username) {
 
-    const user = await octokit.users.getAuthenticated();
-    
-    return jsonResponse({
-      authenticated: true,
-      username: user.data.login,
-      avatar_url: user.data.avatar_url,
-    }, 200, request);
-  } catch (error) {
-    console.log('Error checking auth:', error);
-    // Clear invalid session
-    await env.SESSIONS.delete(sessionId);
-    return jsonResponse({ authenticated: false }, 200, request, error);
+    // Get user info from GitHub
+    try {
+      const octokit = new Octokit({auth: session.token});
+
+      const user = await octokit.users.getAuthenticated();
+
+        session['username'] = user.data.login;
+        session['avatar_url'] = user.data.avatar_url;
+        session['pending'] = false;
+    } catch (error) {
+      console.log('Error checking auth:', error);
+      // Clear invalid session
+      await env.SESSIONS.delete(sessionId);
+      return jsonResponse({authenticated: false}, 200, request, error);
+    }
   }
+  await putSession(env, sessionId, session);
+  return jsonResponse({
+    authenticated: true,
+    username: session.username,
+    avatar_url: session.avatar_url,
+  }, 200, request);
 }
 
 async function handleLogout(request, env) {

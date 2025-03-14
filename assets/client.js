@@ -558,7 +558,7 @@ class DeviceEditor {
 
             this.gpioPinList.appendChild(pinItem);
             const input = pinItem.querySelector('input');
-            input.addEventListener('input', this.validateGpioPins);
+            input.addEventListener('input', () => { this.validateGpioPins(); });
         });
 
         // Add grid layout styles
@@ -1003,7 +1003,7 @@ class DeviceEditor {
     }
 
     validateGpioPins() {
-        const formGroup = document.querySelector('#gpioPinList').closest('.form-group');
+        const formGroup = this.gpioPinList.closest('.form-group');
         const errorElement = formGroup.querySelector('.error-message');
         const hasGpioPins = Array.from(this.gpioPinList.querySelectorAll('.pin-function'))
             .some(input => input.value.trim() !== '');

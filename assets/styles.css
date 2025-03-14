@@ -879,3 +879,11 @@ button:hover {
         transform: translate(-50%, -50%) rotate(360deg);
     }
 }
+
+.instructions {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
