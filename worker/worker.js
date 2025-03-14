@@ -1,7 +1,5 @@
 import jwt from "@tsndr/cloudflare-worker-jwt"
 const { Octokit } = require("@octokit/rest");
-const forge = require('node-forge');
-
 
 
 // Helper to generate session ID
@@ -299,6 +297,7 @@ async function handleSubmitDevice(request, env) {
     if (!slug || !boardName || !description || !chipType || !gpioPins || !tags.length || !yamlConfig) {
       return jsonResponse({error: 'Missing required fields'}, 400, request);
     }
+    const folder = 'content/devices/' + slug;
 
     const octokit = new Octokit({
       auth: await getInstallationToken(env),
@@ -310,13 +309,13 @@ async function handleSubmitDevice(request, env) {
     // Generate branch name
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const shortId = Math.random().toString(36).substring(2, 10);
-    const branchName = `device/${slug}-${shortId}-${timestamp}`;
+    const branchName = `${slug}-${shortId}-${timestamp}`;
 
     // Get base branch reference
     const {data: baseRef} = await octokit.rest.git.getRef({
       owner,
       repo,
-      ref: `heads/${env.BASE_BRANCH || 'dev'}`,
+      ref: `heads/${env.BASE_BRANCH || 'main'}`,
     });
 
     // Check if branch already exists
@@ -346,7 +345,7 @@ async function handleSubmitDevice(request, env) {
     for (const [key, file] of formData.entries()) {
       if (key.startsWith('image') && file instanceof File) {
         const filename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const imagePath = `${slug}/images/${filename}`;
+        const imagePath = `${folder}/images/${filename}`;
 
         const arrayBuffer = await file.arrayBuffer();
         const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
@@ -379,8 +378,8 @@ async function handleSubmitDevice(request, env) {
 
     // Create files
     const files = {
-      [`${slug}/device.md`]: deviceMarkdown,
-      [`${slug}/config.yaml`]: yamlConfig,
+      [`${folder}/device.md`]: deviceMarkdown,
+      [`${folder}/config.yaml`]: yamlConfig,
     };
 
     for (const [path, content] of Object.entries(files)) {
@@ -405,30 +404,7 @@ async function handleSubmitDevice(request, env) {
     });
 
     // Create response with success data and clear localStorage script
-    const responseHtml = `
-      <script>
-        // Clear form data from localStorage
-        localStorage.removeItem('deviceEditorFormData');
-        
-        // Notify parent window of success
-        window.parent.postMessage({
-          type: 'submitSuccess',
-          data: {
-            success: true,
-            pr_url: '${pr.html_url}'
-          }
-        }, '*');
-      </script>
-    `;
-
-    return new Response(responseHtml, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/html',
-        'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
-        'Access-Control-Allow-Credentials': 'true'
-      }
-    });
+    return jsonResponse({success: true}, 200, request);
   } catch (error) {
     console.error('Error submitting device:', error);
     return jsonResponse({error: 'Failed to submit device'}, 500, request, error);
@@ -437,11 +413,6 @@ async function handleSubmitDevice(request, env) {
 
 export default {
   async fetch(request, env, ctx) {
-    // Debug environment bindings
-    console.log('Environment bindings:', {
-      hasKV: !!env.SESSIONS,
-      envKeys: Object.keys(env)
-    });
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       const origin = request.headers.get('Origin') || '*';

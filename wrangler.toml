@@ -1,5 +1,5 @@
 name = "device-editor"
-main = "worker/index.js"
+main = "worker/worker.js"
 compatibility_date = "2025-03-12"
 compatibility_flags = ["nodejs_compat"]
 

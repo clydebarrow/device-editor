@@ -16,6 +16,7 @@ class DeviceEditor {
         this.imageOverlay = this.imageDropZone.querySelector('.drop-zone-overlay');
         this.contextMenu = document.getElementById('contextMenu');
         this.toast = document.getElementById('toast');
+        this.formDataStorageKey = 'deviceEditorFormData';
 
         // Cache form elements
         this.formElements = {
@@ -41,11 +42,11 @@ class DeviceEditor {
 
         // Server configuration
         this.serverConfig = {
-            submitUrl: 'http://localhost:8787/submit',
-            authUrl: 'http://localhost:8787/auth/github',
-            authCheckUrl: 'http://localhost:8787/auth/check',
-            logoutUrl: 'http://localhost:8787/auth/logout',
-            maxImageSize: 5 * 1024 * 1024  // 5MB max per image
+            submitUrl: '/submit',
+            authUrl: '/auth/github',
+            authCheckUrl: '/auth/check',
+            logoutUrl: '/auth/logout',
+            maxImageSize: 1024 * 1024  // 5MB max per image
         };
 
         // Initialize validation state
@@ -212,7 +213,7 @@ class DeviceEditor {
                     if (!response.ok) {
                         throw new Error('Logout failed');
                     }
-                    localStorage.removeItem('deviceEditorFormData');
+                    localStorage.removeItem(this.formDataStorageKey);
                     this.checkAuthStatus();
                     window.location.reload();
                 })
@@ -551,15 +552,9 @@ class DeviceEditor {
                 <input type="text" class="pin-function" placeholder="Enter pin function" data-pin="${pin}">
             `;
 
-            const input = pinItem.querySelector('input');
-            input.addEventListener('input', () => {
-                this.validationState.hasGpioPins = Array.from(this.gpioPinList.querySelectorAll('.pin-function'))
-                    .some(input => input.value.trim() !== '');
-                document.getElementById('gpioPinsRequired').value = this.validationState.hasGpioPins ? 'valid' : '';
-                this.saveFormState();
-            });
-
             this.gpioPinList.appendChild(pinItem);
+            const input = pinItem.querySelector('input');
+            input.addEventListener('input', this.validateGpioPins);
         });
 
         // Add grid layout styles
@@ -679,7 +674,7 @@ class DeviceEditor {
             // Add YAML configuration
             formData.append('yamlConfig', this.yamlEditor.getValue());
 
-            // Add images
+            // Add images,
             const imageContainers = this.imagePreview.querySelectorAll('.image-container');
             for (let i = 0; i < imageContainers.length; i++) {
                 const img = imageContainers[i].querySelector('img');
@@ -688,7 +683,7 @@ class DeviceEditor {
                 
                 // Validate image size
                 if (blob.size > this.serverConfig.maxImageSize) {
-                    throw new Error(`Image ${i + 1} exceeds maximum size of 5MB`);
+                    throw new Error(`Image ${i + 1} exceeds maximum size of {this.serverConfig.maxImageSize / 1024}kB`);
                 }
                 
                 formData.append(`image${i}`, blob, `image${i}.${blob.type.split('/')[1]}`);
@@ -707,6 +702,7 @@ class DeviceEditor {
             }
 
             const result = await response.json();
+            console.log(result);
             this.showToast('Device configuration submitted successfully!');
             
             // Open PR in new tab if available
@@ -718,13 +714,14 @@ class DeviceEditor {
             this.form.reset();
             this.imagePreview.innerHTML = '';
             this.yamlEditor.setValue('');
+            this.selectedTagsList.forEach(tag => {this.removeTag(tag)});
             this.selectedTagsList.clear();
-            this.updateTagsDisplay();
-            localStorage.removeItem('deviceEditorFormData');
+            localStorage.removeItem(this.formDataStorageKey);
             this.validationState = {
                 hasTags: false,
                 hasGpioPins: false,
                 hasImages: false,
+                wasValidated: false,
             };
         } catch (error) {
             if (error.message.includes('Authentication required')) {
@@ -907,7 +904,14 @@ class DeviceEditor {
     validateGpioPins() {
         const formGroup = document.querySelector('#gpioPinList').closest('.form-group');
         const errorElement = formGroup.querySelector('.error-message');
-        
+        const hasGpioPins = Array.from(this.gpioPinList.querySelectorAll('.pin-function'))
+            .some(input => input.value.trim() !== '');
+        if (hasGpioPins !== this.validationState.hasGpioPins) {
+            this.validationState.hasGpioPins = hasGpioPins;
+            this.saveFormState();
+        }
+        document.getElementById('gpioPinsRequired').value = this.validationState.hasGpioPins ? 'valid' : '';
+
         if (!this.validationState.hasGpioPins) {
             formGroup.classList.add('error');
             errorElement.textContent = 'At least one GPIO pin must have a function';
