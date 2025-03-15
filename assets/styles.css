@@ -127,7 +127,8 @@ label {
 }
 
 .info-popup-content {
-    padding: 15px;
+    padding: 24px;
+    font-size: 14px;
 }
 
 .info-popup h3 {
@@ -575,10 +576,12 @@ button:hover {
 .tag-suggestion-item {
     padding: 8px 12px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
-.tag-suggestion-item:hover {
-    background: #f5f5f5;
+.tag-suggestion-item:hover,
+.tag-suggestion-item.highlighted {
+    background: var(--hover-color);
 }
 
 .selected-tags {

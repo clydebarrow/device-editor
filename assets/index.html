@@ -38,13 +38,43 @@
     </div>
     <form id="deviceForm" novalidate>
         <div class="form-group">
-            <label for="boardName">Device Name:</label>
-            <input type="text" id="boardName" name="boardName" required placeholder="e.g., ESP32 Development Board">
+            <div class="label-container">
+                <label for="boardName">Device Name:</label>
+                <span class="info-icon" id="boardNameInfoIcon">ⓘ</span>
+            </div>
+            <div id="boardNameInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Device Name</h3>
+                    <p>Enter a name for the device that clearly identifies it. Typically this would include the manufacturer name and model.</p>
+                    <p>Examples:</p>
+                    <ul>
+                        <li>Acme ESP32-S3-Mini Development Doard</li>
+                        <li>Opticorp LED Strip Controller</li>
+                    </ul>
+                </div>
+            </div>
+            <input type="text" id="boardName" name="boardName" required placeholder="e.g., Acme ESP32-S3-Mini Development Board">
             <div class="error-message"></div>
         </div>
 
         <div class="form-group">
-            <label for="slug">Slug:</label>
+            <div class="label-container">
+                <label for="slug">Slug:</label>
+                <span class="info-icon" id="slugInfoIcon">ⓘ</span>
+            </div>
+            <div id="slugInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Slug</h3>
+                    <p>A URL-friendly version of the device name. This will be used in URLs and file names.</p>
+                    <p>Rules:</p>
+                    <ul>
+                        <li>Use only lowercase letters, numbers, dots, and hyphens</li>
+                        <li>No spaces or special characters</li>
+                        <li>Should be unique across all devices</li>
+                    </ul>
+                    <p>This field is auto-generated from the device name but can be customized if needed.</p>
+                </div>
+            </div>
             <input type="text" id="slug" name="slug" required
                    pattern="[a-z0-9-.]+"
                    title="Use only lowercase letters, numbers, dots, and hyphens"
@@ -56,14 +86,47 @@
         </div>
 
         <div class="form-group">
-            <label for="description">Device Description:</label>
+            <div class="label-container">
+                <label for="description">Device Description:</label>
+                <span class="info-icon" id="descriptionInfoIcon">ⓘ</span>
+            </div>
+            <div id="descriptionInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Device Description</h3>
+                    <p>Provide a clear and detailed description of the device, including:</p>
+                    <ul>
+                        <li>Main features and capabilities</li>
+                        <li>What makes it unique or useful</li>
+                        <li>Any special requirements or considerations</li>
+                        <li>Target use cases or applications</li>
+                    </ul>
+                </div>
+            </div>
             <textarea id="description" name="description" required rows="3"
                       placeholder="Provide a description of the device and its main features"></textarea>
             <div class="error-message"></div>
         </div>
 
         <div class="form-group">
-            <label for="chipType">Chip Type:</label>
+            <div class="label-container">
+                <label for="chipType">Chip Type:</label>
+                <span class="info-icon" id="chipTypeInfoIcon">ⓘ</span>
+            </div>
+            <div id="chipTypeInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Chip Type</h3>
+                    <p>Select the microcontroller chip used in the device. Each chip has different capabilities:</p>
+                    <ul>
+                        <li><strong>ESP32:</strong> Dual-core, WiFi + Bluetooth</li>
+                        <li><strong>ESP32-S2:</strong> Single-core, WiFi, USB-OTG</li>
+                        <li><strong>ESP32-S3:</strong> Dual-core, WiFi + Bluetooth LE, AI acceleration</li>
+                        <li><strong>ESP32-C3:</strong> RISC-V, WiFi + Bluetooth LE</li>
+                        <li><strong>RP2040:</strong> Dual-core ARM Cortex-M0+</li>
+                        <li><strong>RTL8710/8720:</strong> ARM Cortex-M3, WiFi</li>
+                        <li><strong>BK7231/T:</strong> ARM Cortex-M4, WiFi</li>
+                    </ul>
+                </div>
+            </div>
             <select id="chipType" name="chipType" required>
                 <option value="">Select a chip type...</option>
                 <option value="ESP32">ESP32</option>
@@ -80,7 +143,23 @@
         </div>
 
         <div class="form-group">
-            <label for="difficultyRating">Difficulty Rating:</label>
+            <div class="label-container">
+                <label for="difficultyRating">Difficulty Rating:</label>
+                <span class="info-icon" id="difficultyRatingInfoIcon">ⓘ</span>
+            </div>
+            <div id="difficultyRatingInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Difficulty Rating</h3>
+                    <p>Indicate how difficult it is to set up this device with ESPHome:</p>
+                    <ul>
+                        <li><strong>1 - Comes with ESPHome:</strong> Device ships with ESPHome pre-installed</li>
+                        <li><strong>2 - Plug-n-flash:</strong> Just connect and flash, no hardware modifications needed</li>
+                        <li><strong>3 - Disassembly required:</strong> Need to open the device to access flash points</li>
+                        <li><strong>4 - Soldering required:</strong> Need to solder wires or components</li>
+                        <li><strong>5 - Chip needs replacing:</strong> Original chip must be replaced with a compatible one</li>
+                    </ul>
+                </div>
+            </div>
             <select id="difficultyRating" name="difficultyRating">
                 <option value="">Difficulty rating (optional)</option>
                 <option value="1">Comes with ESPHome</option>
@@ -93,7 +172,22 @@
         </div>
 
         <div class="form-group">
-            <label for="productLink">Product Page URL:</label>
+            <div class="label-container">
+                <label for="productLink">Product Page URL:</label>
+                <span class="info-icon" id="productLinkInfoIcon">ⓘ</span>
+            </div>
+            <div id="productLinkInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Product Page URL</h3>
+                    <p>Link to where the device can be purchased. This helps others find and buy the same device.</p>
+                    <p>Guidelines:</p>
+                    <ul>
+                        <li>Use the official product page when possible</li>
+                        <li>Ensure the link is stable and likely to remain active</li>
+                        <li>Avoid affiliate links or temporary sale pages</li>
+                    </ul>
+                </div>
+            </div>
             <input type="url" id="productLink" name="productLink"
                    placeholder="https://example.com/product (optional)"
                    pattern="https?://.+">
@@ -124,21 +218,39 @@
         </div>
 
         <div class="form-group">
-            <label for="electricalStandard">Electrical Standard:</label>
-            <select id="electricalStandard" name="electricalStandard">
-                <option value="">Select a standard (optional)...</option>
-                <option value="AU">Australia (AU)</option>
-                <option value="BR">Brazil (BR)</option>
-                <option value="EU">European Union (EU)</option>
-                <option value="Global">Global</option>
-                <option value="US">United States (US)</option>
-                <option value="UK">United Kingdom (UK)</option>
-                <option value="IN">India (IN)</option>
-            </select>
+            <div class="label-container">
+                <label for="electricalStandardInput">Electrical Standard:</label>
+                <span class="info-icon" id="electricalStandardInfoIcon">ⓘ</span>
+            </div>
+            <div id="electricalStandardInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Electrical Standards</h3>
+                    <p>For devices that are powered by or control a mains power supply, select the electrical standards that your device is compatible with. Multiple selections allowed.</p>
+                    <div class="tags-list" id="electricalStandardInfoList"></div>
+                </div>
+            </div>
+            <div class="tags-container">
+                <div class="tags-input-container">
+                    <input type="text" id="electricalStandardInput" placeholder="Type to add standards...">
+                    <div id="electricalStandardSuggestions" class="tag-suggestions"></div>
+                </div>
+                <div id="selectedElectricalStandards" class="selected-tags"></div>
+                <input type="hidden" id="electricalStandardsHidden" name="electricalStandard">
+                <div class="error-message"></div>
+            </div>
         </div>
 
         <div class="form-group">
-            <label for="madeForESPHome">Made for ESPHome:</label>
+            <div class="label-container">
+                <label for="madeForESPHome">Made for ESPHome:</label>
+                <span class="info-icon" id="madeForESPHomeInfoIcon">ⓘ</span>
+            </div>
+            <div id="madeForESPHomeInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Made for ESPHome</h3>
+                    <p>Is this device specifically designed to work with ESPHome? It must meet <a href="https://esphome.io/guides/made_for_esphome.html" target="_blank">these requirements</a></p>
+                </div>
+            </div>
             <select id="madeForESPHome" name="madeForESPHome">
                 <option value="False" selected>No</option>
                 <option value="True">Yes</option>
@@ -146,7 +258,20 @@
         </div>
 
         <div class="form-group">
-            <label>GPIO Pin Configuration:</label>
+            <div class="label-container">
+                <label>GPIO Pin Configuration:</label>
+                <span class="info-icon" id="gpioPinsInfoIcon">ⓘ</span>
+            </div>
+            <div id="gpioPinsInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>GPIO Pin Configuration</h3>
+                    <p>Specify which GPIO pins on the device are used. For each pin that is used on the device, provide a label to identify
+                        its function, e.g. "LCD_CS" for the chip select pin of a display, or "UART_TX" for the UART transmit pin.</p>
+                    <p>GPIO0 is often used for a boot button and if so should be labeled "BOOT".</p>
+                    <p>At least one pin must be specified.</p>
+                    <p>Select a chip type to see the available pins for the device.</p>
+                </div>
+            </div>
             <div id="gpioPinList" class="gpio-pin-list">
                 <p class="select-chip-message">Please select a chip type to view available pins</p>
             </div>
@@ -155,16 +280,34 @@
         </div>
 
         <div class="form-group">
-            <label for="yamlCode">YAML Configuration:</label>
-            <div class="instructions">
-                <p>Provide a sample YAML configuration file for the device. This should contain all necessary configuration
-                    to make use of the device features, but omit generic configuration not directly related to the
-                    device function. For example, if the device is a light switch, include the light switch configuration but do not include
-                    a Bluetooth proxy configuration.
-                </p>
-                <p>Ensure the YAML is valid and do not include secrets such as API encryption keys.</p>
-                <p>For more information on YAML configuration, please refer to the <a
-                        href="https://esphome.io/guides/configuration.html" target="_blank">ESPHome documentation</a>.</p>
+            <div class="label-container">
+                <label for="yamlCode">YAML Configuration:</label>
+                <span class="info-icon" id="yamlCodeInfoIcon">ⓘ</span>
+            </div>
+            <div id="yamlCodeInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>YAML Configuration</h3>
+                    <p>Provide a sample YAML configuration that demonstrates how to use the device with ESPHome.</p>
+                    <p>Include:</p>
+                    <ul>
+                        <li>Essential device-specific configuration</li>
+                        <li>Pin assignments and component setups</li>
+                        <li>Required features and customizations</li>
+                    </ul>
+                    <p>Do not include:</p>
+                    <ul>
+                        <li>External components</li>
+                        <li>!include statements</li>
+                        <li>Generic configurations (API, Bluetooth, etc.)</li>
+                        <li>Secrets or sensitive data</li>
+                        <li>Optional features not core to the device</li>
+                    </ul>
+                    <p>If a WiFi configuration is required, include only the ssid and password fields like this:</p>
+                    <pre><code>wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password</code></pre>
+                    <p>For guidance, see the <a href="https://esphome.io/guides/configuration.html" target="_blank">ESPHome documentation</a>.</p>
+                </div>
             </div>
             <div id="yamlDropZone" class="drop-zone">
                 <textarea id="yamlCode" name="yamlCode" required></textarea>
@@ -175,12 +318,21 @@
         </div>
 
         <div class="form-group">
-            <label for="images">Board Images:</label>
+            <div class="label-container">
+                <label for="images">Board Images:</label>
+                <span class="info-icon" id="imagesInfoIcon">ⓘ</span>
+            </div>
+            <div id="imagesInfoPopup" class="info-popup">
+                <div class="info-popup-content">
+                    <h3>Board Images</h3>
+                    <p>Upload at least one and up to 3 images of the device to help others identify it.</p>
+                </div>
+            </div>
             <div id="imageDropZone" class="drop-zone image-drop-zone" tabindex="0">
                 <input type="file" id="images" name="images" multiple accept="image/*" class="file-input">
                 <div id="imagePreview" class="image-preview"></div>
                 <div id="imageDropOverlay" class="drop-zone-overlay">
-                    <div class="drop-zone-text">Drop images or paste URLs here, or click to select files</div>
+                    <div class="drop-zone-text">Drop images here, or click to select files</div>
                 </div>
             </div>
             <input type="hidden" id="imagesRequired" name="imagesRequired" required>
