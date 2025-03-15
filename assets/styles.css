@@ -89,10 +89,82 @@ h1 {
     to { transform: translate(-50%, 0); opacity: 1; }
 }
 
-label {
-    display: block;
+.label-container {
+    display: flex;
+    align-items: center;
     margin-bottom: 5px;
+}
+
+label {
     font-weight: bold;
+}
+
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.2s ease;
+}
+
+.info-icon:hover {
+    color: #1976D2;
+}
+
+.info-popup {
+    display: none;
+    position: absolute;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-width: 300px;
+    margin-top: 5px;
+}
+
+.info-popup-content {
+    padding: 15px;
+}
+
+.info-popup h3 {
+    margin: 0 0 10px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+}
+
+.info-popup p {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+}
+
+.tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.info-tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.info-tag:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.info-tag.selected {
+    background: var(--primary-color);
+    color: white;
 }
 
 input[type="text"],

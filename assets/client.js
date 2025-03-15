@@ -109,8 +109,72 @@ class DeviceEditor {
             'security',
             'automation',
             'development',
-            'touchscreen',
+            'touchscreen'
         ];
+
+        // Initialize tags info popup
+        const tagsInfoIcon = document.getElementById('tagsInfoIcon');
+        const tagsInfoPopup = document.getElementById('tagsInfoPopup');
+        const tagsInfoList = document.getElementById('tagsInfoList');
+
+        // Create a map to store tag elements for easy access
+        this.tagElementsMap = new Map();
+
+        // Populate tags list
+        this.availableTags.forEach(tag => {
+            const tagElement = document.createElement('span');
+            tagElement.className = 'info-tag';
+            tagElement.textContent = tag;
+            if (this.selectedTagsList.has(tag)) {
+                tagElement.classList.add('selected');
+            }
+            
+            // Add click handler for tag selection
+            tagElement.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.selectedTagsList.has(tag)) {
+                    this.removeTag(tag);
+                } else {
+                    this.addTag(tag);
+                }
+            });
+
+            this.tagElementsMap.set(tag, tagElement);
+            tagsInfoList.appendChild(tagElement);
+        });
+
+        // Override addTag and removeTag to update popup
+        const originalAddTag = this.addTag.bind(this);
+        this.addTag = (tag) => {
+            originalAddTag(tag);
+            const tagElement = this.tagElementsMap.get(tag);
+            if (tagElement) {
+                tagElement.classList.add('selected');
+            }
+        };
+
+        const originalRemoveTag = this.removeTag.bind(this);
+        this.removeTag = (tag) => {
+            originalRemoveTag(tag);
+            const tagElement = this.tagElementsMap.get(tag);
+            if (tagElement) {
+                tagElement.classList.remove('selected');
+            }
+        };
+
+        // Toggle popup on icon click
+        tagsInfoIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = tagsInfoPopup.style.display === 'block';
+            tagsInfoPopup.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // Close popup when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!tagsInfoPopup.contains(e.target) && e.target !== tagsInfoIcon) {
+                tagsInfoPopup.style.display = 'none';
+            }
+        });
 
         // Initialize chip pins
         this.chipPins = {
