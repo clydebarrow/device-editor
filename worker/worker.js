@@ -353,7 +353,7 @@ async function handleSubmitDevice(request, env) {
     const description = formData.get('description');
     const chipType = formData.get('chipType');
     const difficultyRating = formData.get('difficultyRating');
-    const standard = formData.get('electricalStandard');
+    const standard = formData.get('electricalStandard')?.split(',') || [];
     const madeForEsphome = formData.get('madeForESPHome');
     const productLink = formData.get('productLink');
     const gpioPins = JSON.parse(formData.get('gpioPins') || '{}');
@@ -435,7 +435,7 @@ async function handleSubmitDevice(request, env) {
       `board: ${chipType}`,
       `difficulty: ${difficultyRating}`,
       `slug: ${slug}`,
-      `standard: ${standard}`,
+      `standard: [${standard.join(', ')}]`,
       `made_for_esphome: ${madeForEsphome}`,
       `title: ${boardName}`,
       `project_url: ${productLink}`,
