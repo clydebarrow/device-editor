@@ -206,7 +206,6 @@ async function handleCheckAuth(request, env) {
     return jsonResponse({ error: 'Server configuration error' }, 500, request, new Error('SESSIONS KV namespace is not defined'));
   }
 
-  console.log('Checking session:', sessionId);
   const  sessionData = await env.SESSIONS.get(sessionId);
 
   if (!sessionData) {
@@ -353,10 +352,14 @@ async function handleSubmitDevice(request, env) {
     const boardName = formData.get('boardName');
     const description = formData.get('description');
     const chipType = formData.get('chipType');
+    const difficultyRating = formData.get('difficultyRating');
+    const standard = formData.get('electricalStandard');
+    const madeForEsphome = formData.get('madeForESPHome');
     const productLink = formData.get('productLink');
     const gpioPins = JSON.parse(formData.get('gpioPins') || '{}');
     const tags = formData.get('tags')?.split(',') || [];
     const yamlConfig = formData.get('yamlConfig');
+    console.log(formData);
 
     // Validate required fields
     if (!slug || !boardName || !description || !chipType || !gpioPins || !tags.length || !yamlConfig) {
@@ -429,13 +432,17 @@ async function handleSubmitDevice(request, env) {
     // Create device markdown file
     const deviceMarkdown = [
       `---`,
-      `chip: ${chipType}`,
-      `board: ${slug}`,
-      `name: ${boardName}`,
-      `product_link: ${productLink}`,
+      `board: ${chipType}`,
+      `difficulty: ${difficultyRating}`,
+      `slug: ${slug}`,
+      `standard: ${standard}`,
+      `made_for_esphome: ${madeForEsphome}`,
+      `title: ${boardName}`,
+      `project_url: ${productLink}`,
       `tags: [${tags.join(', ')}]`,
       `gpio_pins:`,
       ...Object.entries(gpioPins).map(([pin, func]) => `  ${pin}: ${func}`),
+      `date_published: ${new Date().toISOString()}`,
       `---`,
       '',
       description,
@@ -443,7 +450,7 @@ async function handleSubmitDevice(request, env) {
 
     // Create files
     const files = {
-      [`${folder}/device.md`]: deviceMarkdown,
+      [`${folder}/index.md`]: deviceMarkdown,
       [`${folder}/config.yaml`]: yamlConfig,
     };
 
@@ -452,7 +459,7 @@ async function handleSubmitDevice(request, env) {
         owner,
         repo,
         path,
-        message: `Add ${path} for ${slug}`,
+        message: `Add ${path}`,
         content: Buffer.from(content).toString('base64'),
         branch: branchName,
       });

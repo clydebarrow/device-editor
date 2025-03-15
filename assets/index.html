@@ -4,90 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESPHome Device Config Submission</title>
-    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
-    <style>
-        /* Toast notification */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #333;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            display: none;
-            z-index: 1000;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-            }
-            to {
-                transform: translateX(0);
-            }
-        }
-
-        .form-actions {
-            position: relative;
-            z-index: 100;
-            margin-top: 2rem;
-            text-align: right;
-        }
-
-        .drop-zone {
-            position: relative;
-        }
-
-        .drop-zone-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .CodeMirror {
-            position: relative;
-            z-index: 20;
-        }
-
-        .yaml-validate-button {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 30;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            display: none;
-            transition: all 0.3s ease;
-        }
-
-        .yaml-validate-button:hover {
-            background: #45a049;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="container">
@@ -119,7 +38,7 @@
     </div>
     <form id="deviceForm" novalidate>
         <div class="form-group">
-            <label for="boardName">Board Name:</label>
+            <label for="boardName">Device Name:</label>
             <input type="text" id="boardName" name="boardName" required placeholder="e.g., ESP32 Development Board">
             <div class="error-message"></div>
         </div>
@@ -131,7 +50,7 @@
                    title="Use only lowercase letters, numbers, dots, and hyphens"
                    placeholder="e.g., my-device-v1.0">
             <div class="error-message"></div>
-            <div class="help-text">Auto-generated from board name. Only lowercase letters, numbers, dots, and hyphens
+            <div class="help-text">Auto-generated from device name. Only lowercase letters, numbers, dots, and hyphens
                 allowed.
             </div>
         </div>
@@ -161,9 +80,22 @@
         </div>
 
         <div class="form-group">
-            <label for="productLink">Product Page URL (optional):</label>
+            <label for="difficultyRating">Difficulty Rating:</label>
+            <select id="difficultyRating" name="difficultyRating">
+                <option value="">Difficulty rating (optional)</option>
+                <option value="1">Comes with ESPHome</option>
+                <option value="2">Plug-n-flash</option>
+                <option value="3">Disassembly required</option>
+                <option value="4">Soldering required</option>
+                <option value="5">Chip needs replacing</option>
+            </select>
+            <div class="error-message"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="productLink">Product Page URL:</label>
             <input type="url" id="productLink" name="productLink"
-                   placeholder="https://example.com/product"
+                   placeholder="https://example.com/product (optional)"
                    pattern="https?://.+">
             <div class="error-message"></div>
         </div>
@@ -192,6 +124,14 @@
                 <option value="US">United States (US)</option>
                 <option value="UK">United Kingdom (UK)</option>
                 <option value="IN">India (IN)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="madeForESPHome">Made for ESPHome:</label>
+            <select id="madeForESPHome" name="madeForESPHome">
+                <option value="False" selected>No</option>
+                <option value="True">Yes</option>
             </select>
         </div>
 

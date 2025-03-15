@@ -5,6 +5,9 @@ class DeviceEditor {
         // Initialize form elements
         this.form = document.getElementById('deviceForm');
         this.chipTypeSelect = document.getElementById('chipType');
+        this.electricalStandard = document.getElementById('electricalStandard');
+        this.difficultyRatingSelect = document.getElementById('difficultyRating');
+        this.madeForESPHome = document.getElementById('madeForESPHome');
         this.yamlDropZone = document.getElementById('yamlDropZone');
         this.imageDropZone = document.getElementById('imageDropZone');
         this.imageInput = document.getElementById('images');
@@ -105,7 +108,8 @@ class DeviceEditor {
             'audio',
             'security',
             'automation',
-            'development'
+            'development',
+            'touchscreen',
         ];
 
         // Initialize chip pins
@@ -312,6 +316,12 @@ class DeviceEditor {
             this.handleChipTypeChange(event);
             this.saveFormState();
         });
+        this.difficultyRatingSelect.addEventListener('change', (event) => {
+            this.saveFormState();
+        });
+        this.madeForESPHome.addEventListener('change', (event) => {
+            this.saveFormState();
+        });
         this.setupDropZone(this.yamlDropZone, this.handleYamlDrop.bind(this));
         this.setupDropZone(this.imageDropZone, this.handleImageDrop.bind(this));
         this.imageInput.addEventListener('change', this.handleImageSelect.bind(this));
@@ -424,6 +434,10 @@ class DeviceEditor {
         setTimeout(() => {
             this.toast.style.display = 'none';
         }, duration);
+    }
+
+    hideToast() {
+        this.toast.style.display = 'none';
     }
 
     handleTagInput(event) {
@@ -613,6 +627,8 @@ class DeviceEditor {
             description: this.formElements.description.value,
             productLink: this.formElements.productLink.value,
             chipType: this.chipTypeSelect.value,
+            difficultyRating: this.difficultyRatingSelect.value,
+            madeForESPHome: this.madeForESPHome.value,
             slug: this.slugInput.value,
             yamlContent: this.yamlEditor.getValue(),
             tags: Array.from(this.selectedTagsList),
@@ -649,6 +665,12 @@ class DeviceEditor {
                 if (formData.chipType) {
                     this.chipTypeSelect.value = formData.chipType;
                     this.updateGpioPinList(formData.chipType);
+                }
+                if (formData.madeForESPHome) {
+                    this.madeForESPHome.value = formData.madeForESPHome;
+                }
+                if (formData.chipTypeSelect) {
+                    this.chipTypeSelect.value = formData.chipTypeSelect;
                 }
                 if (formData.slug) this.slugInput.value = formData.slug;
 
@@ -709,8 +731,6 @@ class DeviceEditor {
         const submitBtn = document.getElementById('submitBtn');
         const spinner = document.getElementById('spinner');
         try {
-            // Show spinner
-            spinner.classList.remove('hidden');
             submitBtn.disabled = true;
 
             const formData = new FormData();
@@ -720,6 +740,9 @@ class DeviceEditor {
             formData.append('boardName', document.getElementById('boardName').value);
             formData.append('description', document.getElementById('description').value);
             formData.append('chipType', this.chipTypeSelect.value);
+            formData.append('electricalStandard', this.electricalStandard.value);
+            formData.append('difficultyRating', this.difficultyRatingSelect.value);
+            formData.append('madeForESPHome', this.madeForESPHome.value);
 
             // Add product link if provided
             const productLink = document.getElementById('productLink').value;
@@ -745,7 +768,7 @@ class DeviceEditor {
 
             // Add images
             const imageContainers = this.imagePreview.querySelectorAll('.image-container');
-            for (let i = 0; i < imageContainers.length; i++) {
+            for (let i = 0; i !== imageContainers.length; i++) {
                 const img = imageContainers[i].querySelector('img');
                 const response = await fetch(img.src);
                 const blob = await response.blob();
@@ -758,6 +781,9 @@ class DeviceEditor {
                 formData.append(`image${i}`, blob, `image${i}.${blob.type.split('/')[1]}`);
             }
 
+            // Show spinner
+            spinner.classList.remove('hidden');
+            this.showToast('Creating Pull Request...', 10000);
             // Submit the form
             const response = await fetch(this.serverConfig.submitUrl, {
                 method: 'POST',
@@ -772,6 +798,7 @@ class DeviceEditor {
 
             const result = await response.json();
             console.log(result);
+            this.hideToast();
             this.showToast('Device configuration submitted successfully!');
             
             // Open PR in new tab if available
@@ -782,6 +809,7 @@ class DeviceEditor {
             // Clear form after successful submission
             this.resetForm();
         } catch (error) {
+            this.hideToast();
             if (error.message.includes('Authentication required')) {
                 // Save current form state before redirecting
                 this.saveFormState();
@@ -864,6 +892,10 @@ class DeviceEditor {
     }
 
     handleImageFiles(files) {
+        if (this.imagePreview.children.length >= 3) {
+            alert('Maximum number of images is 3.');
+            return;
+        }
         const promises = Array.from(files).map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
