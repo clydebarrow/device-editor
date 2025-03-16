@@ -3,7 +3,6 @@ uploads/
 __pycache__
 .env
 node_modules/
-package-lock.json
 .wrangler/
 *.pem
 .dev.vars
