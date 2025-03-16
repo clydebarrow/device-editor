@@ -638,9 +638,23 @@ class DeviceEditor {
         });
 
         // Add GitHub login button handler
-        document.getElementById('githubLogin').addEventListener('click', async () => {
-            const returnTo = window.location.toString();
-            window.location.href = `${this.serverConfig.authUrl}?returnTo=${encodeURIComponent(returnTo)}`;
+        const githubLoginBtn = document.getElementById('githubLogin');
+        const loginText = githubLoginBtn.querySelector('.login-text');
+
+        githubLoginBtn.addEventListener('click', async () => {
+            // Add loading state
+            githubLoginBtn.classList.add('loading');
+            loginText.textContent = 'Logging in...';
+            
+            try {
+                const returnTo = window.location.toString();
+                window.location.href = `${this.serverConfig.authUrl}?returnTo=${encodeURIComponent(returnTo)}`;
+            } catch (error) {
+                console.error('Login failed:', error);
+                // Remove loading state on error
+                githubLoginBtn.classList.remove('loading');
+                loginText.textContent = 'Login with GitHub';
+            }
         });
     }
 

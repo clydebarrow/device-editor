@@ -17,3 +17,6 @@ preview_id = "67974c12ef4d41eb9338a695d54bf45c"
 directory = "./assets"
 binding = "ASSETS"
 
+routes = [
+  { pattern = "devices.control-j.com", custom_domain = true },
+]
