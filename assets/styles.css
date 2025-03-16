@@ -28,6 +28,33 @@ body {
     padding: 20px;
 }
 
+.header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.nav-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: var(--tag-bg);
+}
+
 h1 {
     text-align: center;
     margin-bottom: 2rem;
@@ -1005,11 +1032,84 @@ button:hover {
 @keyframes slideIn {
     from {
         transform: translateX(100%);
+        opacity: 0;
     }
     to {
         transform: translateX(0);
+        opacity: 1;
     }
 }
+
+/* Contributing page styles */
+.content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.contributing-section,
+.guidelines-section,
+.help-section {
+    margin-bottom: 2rem;
+}
+
+.content h2 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.content h3 {
+    color: #333;
+    margin: 1rem 0;
+}
+
+.contribution-methods {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin: 1.5rem 0;
+}
+
+.method {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.method ol,
+.method ul {
+    margin-left: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.method li {
+    margin-bottom: 0.5rem;
+}
+
+.button {
+    display: inline-block;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    margin: 1rem 0;
+    transition: background-color 0.3s ease;
+}
+
+.button:hover {
+    background-color: #1976D2;
+}
+
+@media (max-width: 768px) {
+    .contribution-methods {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* End of contributing page styles */
 
 .form-actions {
     position: relative;

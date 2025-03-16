@@ -254,6 +254,8 @@ class DeviceEditor {
         // Initialize tag system
         this.selectedTagsList = new Set();
         this.availableTags = [
+            'plug',
+            'socket',
             'display',
             'wifi',
             'ethernet',
