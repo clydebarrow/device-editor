@@ -416,7 +416,12 @@ async function handleSubmitDevice(request, env) {
         const imagePath = `${folder}/images/${filename}`;
 
         const arrayBuffer = await file.arrayBuffer();
-        const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const base64Content = btoa(
+            new Uint8Array(arrayBuffer)
+                .reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+
+        console.log("size of base64Content", base64Content.length);
 
         await octokit.repos.createOrUpdateFileContents({
           owner,

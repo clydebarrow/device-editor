@@ -1180,6 +1180,16 @@ class DeviceEditor {
             alert('Maximum number of images is 3.');
             return;
         }
+        const MAX_FILE_SIZE = 1024 * 1024; // 1MB in bytes
+
+        // Check file sizes first
+        for (const file of files) {
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`File '${file.name}' exceeds the maximum size of 1MB`);
+                return;
+            }
+        }
+
         const promises = Array.from(files).map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
